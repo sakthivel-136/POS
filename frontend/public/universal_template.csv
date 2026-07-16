@@ -1,0 +1,6 @@
+type,name,tamil_name,rate,unit,phone,address,balance
+customer,Kanmani Store,,,,9876543210,Madurai,4500
+customer,Santhya Store,,,,9876543211,Virudhunagar,0
+product,Cardamom (Elachi),ஏலக்காய்,2500,pcs,,,
+product,Black Pepper,கருமிளகு,650,pcs,,,
+product,Cumin Seeds (Jeera),சீரகம்,350,pcs,,,
