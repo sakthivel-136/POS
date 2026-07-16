@@ -1,0 +1,10 @@
+node_modules/
+.next/
+backend/venv/
+backend/venv.old/
+backend/__pycache__/
+sql_app.db
+.env
+.env.local
+*.pyc
+.DS_Store
