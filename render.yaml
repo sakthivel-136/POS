@@ -29,5 +29,5 @@ services:
           type: web
           name: sakthi-spices-backend
           envVarKey: RENDER_EXTERNAL_URL
-    customDomains:
+    domains:
       - billing.sakthi-dev.in
