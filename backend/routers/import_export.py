@@ -3,8 +3,8 @@ import pandas as pd
 from io import BytesIO
 from supabase import Client
 
-from .. import auth
-from ..database import get_supabase
+import auth
+from database import get_supabase
 
 router = APIRouter(
     prefix="/csv",

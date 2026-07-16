@@ -5,9 +5,9 @@ from supabase import Client
 from datetime import timedelta
 from typing import List
 
-from . import schemas, auth
-from .database import get_supabase
-from .routers import products, customers, stock, billing, payments, portal, dashboard, reports, import_export, orders
+import schemas, auth
+from database import get_supabase
+from routers import products, customers, stock, billing, payments, portal, dashboard, reports, import_export, orders
 
 app = FastAPI(title="Sakthi Spices ERP")
 

@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends
 from datetime import datetime, date, timedelta
 from supabase import Client
 
-from .. import auth
-from ..database import get_supabase
+import auth
+from database import get_supabase
 
 router = APIRouter(
     prefix="/dashboard",

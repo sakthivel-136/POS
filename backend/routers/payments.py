@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from supabase import Client
 
-from .. import schemas, auth
-from ..database import get_supabase
+import schemas, auth
+from database import get_supabase
 
 router = APIRouter(
     prefix="/payments",

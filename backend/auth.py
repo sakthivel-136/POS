@@ -4,8 +4,8 @@ from jose import JWTError, jwt
 import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from .database import get_supabase, settings
-from .schemas import UserResponse
+from database import get_supabase, settings
+from schemas import UserResponse
 from supabase import Client
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")

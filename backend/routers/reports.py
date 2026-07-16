@@ -4,8 +4,8 @@ from typing import Optional
 from collections import defaultdict
 from supabase import Client
 
-from .. import auth
-from ..database import get_supabase
+import auth
+from database import get_supabase
 
 router = APIRouter(
     prefix="/reports",

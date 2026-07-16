@@ -3,8 +3,8 @@ from typing import List
 from decimal import Decimal
 from supabase import Client
 
-from .. import schemas, auth
-from ..database import get_supabase
+import schemas, auth
+from database import get_supabase
 
 router = APIRouter(
     prefix="/billing",

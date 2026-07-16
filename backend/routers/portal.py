@@ -3,9 +3,9 @@ from typing import List
 from pydantic import BaseModel
 from supabase import Client
 
-from .. import schemas, auth
-from ..database import get_supabase
-from ..email_utils import send_order_email_async
+import schemas, auth
+from database import get_supabase
+from email_utils import send_order_email_async
 
 router = APIRouter(
     prefix="/portal",

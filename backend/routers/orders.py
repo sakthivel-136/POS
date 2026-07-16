@@ -4,8 +4,8 @@ from pydantic import BaseModel
 from supabase import Client
 from datetime import datetime
 
-from .. import schemas, auth
-from ..database import get_supabase
+import schemas, auth
+from database import get_supabase
 
 router = APIRouter(
     prefix="/orders",
