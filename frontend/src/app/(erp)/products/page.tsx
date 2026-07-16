@@ -172,7 +172,7 @@ export default function ProductsPage() {
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">{product.current_stock} {product.unit}</span>
                       {product.current_stock <= product.minimum_stock && (
-                        <AlertTriangle className="w-4 h-4 text-primary" title="Low Stock" />
+                        <span title="Low Stock"><AlertTriangle className="w-4 h-4 text-primary" /></span>
                       )}
                     </div>
                   </TableCell>
