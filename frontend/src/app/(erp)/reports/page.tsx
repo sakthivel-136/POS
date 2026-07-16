@@ -57,8 +57,8 @@ async function generatePDFFromHTML(title: string, subtitleLine: string, tableHtm
 
     while (remaining > 0) {
       const sliceHeight = Math.min(remaining, pageContentHeight);
-      // Draw a slice of the image on the current page
-      pdf.addImage(imgData, "PNG", 10, y, imgWidth, imgHeight, undefined, "FAST", 0, sourceY / imgHeight);
+      // Draw the full image shifted upwards to act as a slice
+      pdf.addImage(imgData, "PNG", 10, y - sourceY, imgWidth, imgHeight, undefined, "FAST");
       remaining -= sliceHeight;
       sourceY += sliceHeight;
       if (remaining > 0) {
