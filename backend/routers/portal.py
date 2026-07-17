@@ -95,9 +95,8 @@ def place_order(
         for item in order.items
     ]
 
-    # Fire email in background (non-blocking)
-    background_tasks.add_task(
-        _send_order_email,
+    # Send email synchronously to prevent Render from suspending the container before it finishes
+    _send_order_email(
         customer.get('customer_name', 'Customer'),
         customer.get('shop_name', ''),
         db_order['id'],
