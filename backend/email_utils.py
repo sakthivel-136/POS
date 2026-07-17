@@ -106,9 +106,14 @@ def _send_order_email(customer_name: str, shop_name: str, order_id: int, items: 
 
         import json
         import urllib.request
+        import os
         
-        RESEND_API_KEY = "re_J3i3vGYk_Jys69tng5r4XSHE8Kv6X4NZv"
+        RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
         
+        if not RESEND_API_KEY:
+            print("[EMAIL ERROR] RESEND_API_KEY is not set in environment variables.")
+            return
+            
         data = {
             "from": "Sakthi Spices ERP <onboarding@resend.dev>",
             "to": NOTIFY_EMAILS,
