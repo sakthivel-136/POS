@@ -226,7 +226,10 @@ export default function OrdersPage() {
                   <tbody className="divide-y divide-gray-50">
                     {order.order_items?.map((item: any) => (
                       <tr key={item.id} className="bg-white hover:bg-gray-50">
-                        <td className="px-6 py-3 font-medium">{item.product?.product_name}</td>
+                        <td className="px-6 py-3 font-medium">
+                          {item.product?.product_name}
+                          {item.product?.tamil_name && <p className="text-xs text-gray-400 font-normal mt-0.5">{item.product.tamil_name}</p>}
+                        </td>
                         <td className="px-6 py-3 text-right text-gray-600">{item.quantity}</td>
                         <td className="px-6 py-3 text-right text-gray-600">₹{item.rate}</td>
                         <td className="px-6 py-3 text-right font-semibold">₹{item.amount}</td>

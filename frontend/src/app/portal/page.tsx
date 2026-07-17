@@ -543,6 +543,7 @@ export default function CustomerPortal() {
                 <div key={item.product_id} className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm text-gray-900 truncate">{item.product_name}</p>
+                    {item.tamil_name && <p className="text-xs text-gray-400 mt-0.5 truncate">{item.tamil_name}</p>}
                     <p className="text-xs text-gray-500">₹{item.price} each</p>
                   </div>
                   <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden">

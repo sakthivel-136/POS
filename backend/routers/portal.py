@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from typing import List
 from pydantic import BaseModel
 from supabase import Client
 
 import schemas, auth
 from database import get_supabase
-from email_utils import send_order_email_async
+from email_utils import _send_order_email
 
 router = APIRouter(
     prefix="/portal",
@@ -49,7 +49,12 @@ def get_my_prices(supabase: Client = Depends(get_supabase), current_user: schema
     return result
 
 @router.post("/orders")
-def place_order(order: PortalOrderCreate, supabase: Client = Depends(get_supabase), current_user: schemas.UserResponse = Depends(auth.get_current_user)):
+def place_order(
+    order: PortalOrderCreate, 
+    background_tasks: BackgroundTasks,
+    supabase: Client = Depends(get_supabase), 
+    current_user: schemas.UserResponse = Depends(auth.get_current_user)
+):
     customer_res = supabase.table('customers').select('*').eq('user_id', current_user.id).execute()
     if not customer_res.data:
         raise HTTPException(status_code=403, detail="You are not registered as a customer.")
@@ -91,12 +96,13 @@ def place_order(order: PortalOrderCreate, supabase: Client = Depends(get_supabas
     ]
 
     # Fire email in background (non-blocking)
-    send_order_email_async(
-        customer_name=customer.get('customer_name', 'Customer'),
-        shop_name=customer.get('shop_name', ''),
-        order_id=db_order['id'],
-        items=email_items,
-        total=float(order.total_amount)
+    background_tasks.add_task(
+        _send_order_email,
+        customer.get('customer_name', 'Customer'),
+        customer.get('shop_name', ''),
+        db_order['id'],
+        email_items,
+        float(order.total_amount)
     )
 
     return {"message": "Order placed successfully", "order_id": db_order['id']}
