@@ -91,7 +91,7 @@ def _send_order_email(customer_name: str, shop_name: str, order_id: int, items: 
     <!-- CTA -->
     <div style="text-align:center;padding:0 28px 28px">
       <p style="margin:0 0 16px;color:#6b7280;font-size:14px">Please log in to the ERP to process this order.</p>
-      <a href="http://localhost:3000/orders" style="display:inline-block;background:#1a1752;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:10px;font-weight:700;font-size:14px">
+      <a href="https://bill.sakthi-dev.in/orders" style="display:inline-block;background:#1a1752;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:10px;font-weight:700;font-size:14px">
         View in ERP &rarr;
       </a>
     </div>

@@ -293,7 +293,6 @@ export default function ProductsPage() {
             </form>
           </div>
         </div>
-        </div>
       )}
 
       {/* Add Product Modal */}

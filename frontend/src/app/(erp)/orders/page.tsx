@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Package, CheckCircle, XCircle, Clock, Truck, X, IndianRupee, Bell, BellRing } from "lucide-react";
+import { Package, CheckCircle, XCircle, Clock, Truck, X, IndianRupee, Bell, BellRing, Pencil, Trash } from "lucide-react";
 
 // Play a short notification beep using Web Audio API (no external file needed)
 function playNotificationSound() {
@@ -42,6 +42,11 @@ export default function OrdersPage() {
   const [paymentType, setPaymentType] = useState<"unpaid" | "partially_paid" | "paid">("unpaid");
   const [amountPaid, setAmountPaid] = useState("");
   const [isDelivering, setIsDelivering] = useState(false);
+
+  // Edit Order Modal state
+  const [editOrder, setEditOrder] = useState<any>(null);
+  const [editItems, setEditItems] = useState<any[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
 
   const fetchOrders = useCallback(async (silent = false) => {
     try {
@@ -82,7 +87,46 @@ export default function OrdersPage() {
     setAmountPaid("");
   };
 
+  const openEditModal = (order: any) => {
+    setEditOrder(order);
+    setEditItems([...(order.order_items || [])]);
+  };
 
+  const updateEditItem = (index: number, quantity: string) => {
+    const qty = parseFloat(quantity) || 0;
+    const newItems = [...editItems];
+    newItems[index] = { ...newItems[index], quantity: qty, amount: qty * newItems[index].rate };
+    setEditItems(newItems);
+  };
+
+  const removeEditItem = (index: number) => {
+    setEditItems(editItems.filter((_, i) => i !== index));
+  };
+
+  const handleEditSave = async () => {
+    if (!editOrder) return;
+    setIsEditing(true);
+    try {
+      const total = editItems.reduce((s, i) => s + i.amount, 0);
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/orders/${editOrder.id}/edit`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ items: editItems, total_amount: total })
+      });
+      if (res.ok) {
+        setEditOrder(null);
+        fetchOrders(true);
+      } else {
+        alert("Failed to edit order");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error editing order");
+    } finally {
+      setIsEditing(false);
+    }
+  };
   const handleDeliver = async () => {
     if (!deliverOrder) return;
     setIsDelivering(true);
@@ -240,6 +284,9 @@ export default function OrdersPage() {
 
                 {order.status === "pending" && (
                   <div className="bg-gray-50 px-6 py-4 border-t flex justify-end gap-3">
+                    <Button variant="outline" className="text-gray-600 border-gray-200" onClick={() => openEditModal(order)}>
+                      <Pencil className="w-4 h-4 mr-2" /> Edit Order
+                    </Button>
                     <Button variant="outline" className="text-red-600 hover:bg-red-50 border-red-200" onClick={() => rejectOrder(order.id)}>
                       <XCircle className="w-4 h-4 mr-2" /> Reject
                     </Button>
@@ -351,6 +398,59 @@ export default function OrdersPage() {
               >
                 {isDelivering ? "Saving..." : "Confirm Delivery"}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Order Modal */}
+      {editOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b flex items-center justify-between">
+              <h3 className="font-bold text-xl">Edit Order #{editOrder.id}</h3>
+              <button onClick={() => setEditOrder(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              {editItems.length === 0 ? (
+                <p className="text-center text-gray-500 py-4">No items left. This order will be empty.</p>
+              ) : (
+                editItems.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between gap-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900">{item.product?.product_name || 'Unknown Product'}</p>
+                      <p className="text-xs text-gray-500">Rate: ₹{item.rate}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input 
+                        type="number" 
+                        min="0"
+                        className="w-20 text-center" 
+                        value={item.quantity}
+                        onChange={(e) => updateEditItem(index, e.target.value)}
+                      />
+                      <span className="font-bold w-20 text-right">₹{item.amount}</span>
+                      <button onClick={() => removeEditItem(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
+                        <Trash className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 flex items-center justify-between border-t">
+              <div className="text-lg">
+                <span className="text-gray-500 font-medium mr-2">New Total:</span>
+                <span className="font-bold text-emerald-600">₹{editItems.reduce((s, i) => s + i.amount, 0).toFixed(2)}</span>
+              </div>
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => setEditOrder(null)}>Cancel</Button>
+                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={isEditing} onClick={handleEditSave}>
+                  {isEditing ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

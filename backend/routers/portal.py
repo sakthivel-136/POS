@@ -145,3 +145,14 @@ def get_portal_bills(supabase: Client = Depends(get_supabase), current_user: sch
     
     bills_res = supabase.table('bills').select('*, bill_items(*, product:products(product_name, tamil_name))').eq('customer_id', customer['id']).order('bill_date', desc=True).execute()
     return bills_res.data
+
+@router.get("/my-orders")
+def get_portal_my_orders(supabase: Client = Depends(get_supabase), current_user: schemas.UserResponse = Depends(auth.get_current_user)):
+    customer_res = supabase.table('customers').select('*').eq('user_id', current_user.id).execute()
+    if not customer_res.data:
+        raise HTTPException(status_code=403, detail="You are not registered as a customer.")
+    
+    customer = customer_res.data[0]
+    
+    orders_res = supabase.table('orders').select('*, order_items(*, product:products(product_name, tamil_name, unit))').eq('customer_id', customer['id']).order('created_at', desc=True).execute()
+    return orders_res.data

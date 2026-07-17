@@ -18,11 +18,44 @@ class OrderProcessUpdate(BaseModel):
     payment_status: str = "unpaid"  # "unpaid", "partially_paid", "paid"
     amount_paid: float = 0.0
 
+class OrderItemEdit(BaseModel):
+    product_id: int
+    quantity: float
+    rate: float
+    amount: float
+
+class OrderEditUpdate(BaseModel):
+    items: List[OrderItemEdit]
+    total_amount: float
+
 @router.get("/")
 def get_all_orders(supabase: Client = Depends(get_supabase)):
     # Fetch orders with their customer and items
-    res = supabase.table('orders').select('*, customer:customers(*), order_items(*, product:products(product_name))').order('created_at', desc=True).execute()
+    res = supabase.table('orders').select('*, customer:customers(*), order_items(*, product:products(product_name, tamil_name))').order('created_at', desc=True).execute()
     return res.data
+
+@router.put("/{order_id}/edit")
+def edit_order(order_id: int, update: OrderEditUpdate, supabase: Client = Depends(get_supabase)):
+    # 1. Update the total_amount in the orders table
+    supabase.table('orders').update({'total_amount': update.total_amount}).eq('id', order_id).execute()
+    
+    # 2. Delete existing order items
+    supabase.table('order_items').delete().eq('order_id', order_id).execute()
+    
+    # 3. Insert new items
+    if update.items:
+        new_items = []
+        for item in update.items:
+            new_items.append({
+                "order_id": order_id,
+                "product_id": item.product_id,
+                "quantity": float(item.quantity),
+                "rate": float(item.rate),
+                "amount": float(item.amount)
+            })
+        supabase.table('order_items').insert(new_items).execute()
+        
+    return {"message": "Order updated successfully"}
 
 @router.put("/{order_id}/process")
 def process_order(order_id: int, update: OrderProcessUpdate, supabase: Client = Depends(get_supabase), admin: schemas.UserResponse = Depends(auth.get_current_active_admin)):

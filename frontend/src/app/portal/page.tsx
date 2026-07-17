@@ -18,6 +18,7 @@ export default function CustomerPortal() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [bills, setBills] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [myOrders, setMyOrders] = useState<any[]>([]);
   const [productSearch, setProductSearch] = useState("");
   const [cart, setCart] = useState<any[]>([]);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
@@ -97,11 +98,21 @@ export default function CustomerPortal() {
     } catch (err) { console.error(err); }
   };
 
+  const fetchMyOrders = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/portal/my-orders`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) setMyOrders(await res.json());
+    } catch (err) { console.error(err); }
+  };
+
   useEffect(() => {
     if (token) {
       if (currentView === "dashboard") fetchDashboard(token);
       if (currentView === "bills") fetchBills();
       if (currentView === "order") fetchProducts();
+      if (currentView === "my-orders") fetchMyOrders();
     }
   }, [currentView, token]);
 
@@ -406,6 +417,52 @@ export default function CustomerPortal() {
           </div>
         )}
 
+        {/* MY ORDERS */}
+        {currentView === "my-orders" && (
+          <div className="p-4 max-w-2xl mx-auto space-y-4 animate-in fade-in duration-300">
+            <h2 className="text-xl font-bold text-gray-900 mb-4 px-1">My Orders</h2>
+            {myOrders.length === 0 ? (
+              <div className="bg-white rounded-2xl p-8 text-center shadow-sm">
+                <ShoppingCart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 font-medium">No previous orders found.</p>
+              </div>
+            ) : (
+              myOrders.map(order => (
+                <div key={order.id} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+                  <div className="px-4 py-3 flex items-start justify-between border-b border-gray-100">
+                    <div>
+                      <p className="font-bold text-gray-900">Order #{order.id}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {new Date(order.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <p className="font-bold text-gray-900">₹{order.total_amount}</p>
+                      {order.status === "pending" && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Pending</span>}
+                      {order.status === "delivered" && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">Delivered</span>}
+                      {order.status === "rejected" && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">Rejected</span>}
+                    </div>
+                  </div>
+                  <div className="px-4 py-2 divide-y divide-gray-50 bg-gray-50">
+                    {order.order_items?.map((item: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between py-2.5">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">{item.product?.product_name || `Product #${item.product_id}`}</p>
+                          {item.product?.tamil_name && <p className="text-xs text-gray-400">{item.product.tamil_name}</p>}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-gray-900">₹{item.amount}</p>
+                          <p className="text-xs text-gray-400">{item.quantity} × ₹{item.rate}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
         {/* ORDER */}
         {currentView === "order" && (
           <div className="animate-in fade-in duration-300">
@@ -488,7 +545,8 @@ export default function CustomerPortal() {
           {[
             { id: "dashboard", icon: LayoutDashboard, label: "Home" },
             { id: "bills", icon: Receipt, label: "Bills" },
-            { id: "order", icon: Package, label: "Order" },
+            { id: "my-orders", icon: ShoppingCart, label: "Orders" },
+            { id: "order", icon: Package, label: "New" },
           ].map(tab => {
             const Icon = tab.icon;
             const isActive = currentView === tab.id;
