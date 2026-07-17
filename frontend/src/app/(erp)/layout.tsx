@@ -13,29 +13,60 @@ import {
   X,
   BarChart
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 export default function ERPLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userRole, setUserRole] = useState<string>("admin"); // default optimistic
   const router = useRouter();
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        router.push("/");
+        return;
+      }
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/users/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUserRole(data.role);
+          if (data.role === "customer") {
+            router.push("/portal");
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchUser();
+  }, [router]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     router.push("/");
   };
 
-  const navItems = [
+  const allNavItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Billing (POS)", href: "/billing", icon: ReceiptText },
     { name: "Orders", href: "/orders", icon: Package },
     { name: "Customers", href: "/customers", icon: Users },
     { name: "Bills History", href: "/bills", icon: ReceiptText },
     { name: "Products", href: "/products", icon: Package },
+    { name: "Expenses", href: "/expenses", icon: ReceiptText },
     { name: "Reports", href: "/reports", icon: BarChart },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
+
+  const navItems = userRole === "admin" ? allNavItems : allNavItems.filter(i => 
+    ["Billing (POS)", "Orders", "Bills History"].includes(i.name)
+  );
 
   return (
     <div className="min-h-screen bg-[#F3F4F6] flex">

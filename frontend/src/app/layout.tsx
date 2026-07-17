@@ -17,11 +17,18 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: "#10b981",
 };
 
 export const metadata: Metadata = {
   title: "Sakthi Spices ERP",
   description: "Customer Portal & ERP for Sakthi Spices",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Sakthi ERP",
+  },
 };
 
 export default function RootLayout({

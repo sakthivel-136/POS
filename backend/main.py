@@ -7,7 +7,7 @@ from typing import List
 
 import schemas, auth
 from database import get_supabase
-from routers import products, customers, stock, billing, payments, portal, dashboard, reports, import_export, orders
+from routers import products, customers, stock, billing, payments, portal, dashboard, reports, import_export, orders, expenses
 
 app = FastAPI(title="Sakthi Spices ERP")
 
@@ -29,7 +29,7 @@ app.include_router(dashboard.router)
 app.include_router(reports.router)
 app.include_router(import_export.router)
 app.include_router(orders.router)
-
+app.include_router(expenses.router)
 @app.post("/token", response_model=schemas.Token)
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), supabase: Client = Depends(get_supabase)):
     phone = form_data.username
@@ -120,7 +120,7 @@ def get_pending_users(supabase: Client = Depends(get_supabase), current_admin: s
     return res.data
 
 @app.post("/admin/approve_user/{user_id}")
-def approve_user(user_id: int, action: str, role: str = "staff", supabase: Client = Depends(get_supabase), current_admin: schemas.UserResponse = Depends(auth.get_current_active_admin)):
+def approve_user(user_id: int, action: str, role: str = "staff", password: str = None, supabase: Client = Depends(get_supabase), current_admin: schemas.UserResponse = Depends(auth.get_current_active_admin)):
     # action can be 'approve' or 'reject'
     res = supabase.table('users').select('*').eq('id', user_id).execute()
     if not res.data:
@@ -129,7 +129,11 @@ def approve_user(user_id: int, action: str, role: str = "staff", supabase: Clien
     target_user = res.data[0]
         
     if action == "approve":
-        supabase.table('users').update({'status': 'active', 'role': role}).eq('id', user_id).execute()
+        update_data = {'status': 'active', 'role': role}
+        if password:
+            update_data['password_hash'] = auth.get_password_hash(password)
+            
+        supabase.table('users').update(update_data).eq('id', user_id).execute()
         # If customer role, link to existing or create new
         if role == "customer":
             phone = target_user['username']

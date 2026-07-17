@@ -1,0 +1,21 @@
+{
+  "name": "Sakthi Spices ERP",
+  "short_name": "Sakthi ERP",
+  "description": "Wholesale ERP and POS system for Sakthi Spices",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

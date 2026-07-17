@@ -9,6 +9,7 @@ import {
 import { Receipt, Search, FileEdit, X, IndianRupee, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { generateBillPDF } from "@/utils/pdfGenerator";
 
 const STATUS_TABS = [
   { id: "all", label: "All Bills", icon: Receipt },
@@ -31,6 +32,7 @@ const statusLabel: Record<string, string> = {
 export default function BillsPage() {
   const [bills, setBills] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("all");
   const [statusTab, setStatusTab] = useState("all");
   const [search, setSearch] = useState("");
@@ -45,12 +47,14 @@ export default function BillsPage() {
     if (!token) return router.push("/");
     
     try {
-      const [billsRes, custRes] = await Promise.all([
+      const [billsRes, custRes, prodRes] = await Promise.all([
         fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
       if (billsRes.ok) setBills(await billsRes.json());
       if (custRes.ok) setCustomers(await custRes.json());
+      if (prodRes.ok) setProducts(await prodRes.json());
     } catch (err) { console.error(err); }
   };
 
@@ -112,6 +116,34 @@ export default function BillsPage() {
   // Summary totals
   const totalPending = bills.reduce((s, b) => s + parseFloat(b.pending_amount || 0), 0);
   const totalPaid = bills.reduce((s, b) => s + parseFloat(b.paid_amount || 0), 0);
+
+  const generatePDF = async (bill: any, customer: any) => {
+    // enrich items with product info
+    const enrichedItems = (bill.bill_items || []).map((item: any) => {
+      const prod = products.find(p => p.id === item.product_id);
+      return {
+        ...item,
+        product_name: prod ? prod.product_name : `Product ${item.product_id}`,
+        tamil_name: prod ? prod.tamil_name : "",
+      };
+    });
+    
+    await generateBillPDF(bill, customer, enrichedItems);
+  };
+
+  const shareToWhatsApp = (bill: any, customer: any) => {
+    if (!customer || !customer.phone_number) {
+      alert("Customer phone number not available.");
+      return;
+    }
+    const phone = customer.phone_number.replace(/\D/g, "");
+    const waPhone = phone.startsWith("91") ? phone : (phone.length === 10 ? `91${phone}` : phone);
+    
+    const text = `*SAKTHI SPICES*\n\nHello ${customer.customer_name},\n\nHere are the details for your recent purchase (Bill #${bill.id}):\n\n*Total Amount:* Rs. ${bill.total_amount}\n*Paid:* Rs. ${bill.paid_amount || 0}\n*Pending:* Rs. ${bill.pending_amount}\n\nThank you for choosing Sakthi Spices!`;
+    const encodedText = encodeURIComponent(text);
+    
+    window.open(`https://wa.me/${waPhone}?text=${encodedText}`, "_blank");
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -227,9 +259,12 @@ export default function BillsPage() {
                         {statusLabel[bill.status] || bill.status}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Button onClick={() => openEditModal(bill)} variant="outline" size="sm" className="h-8 border-gray-200 hover:bg-gray-50">
+                    <TableCell className="text-right space-x-2">
+                      <Button onClick={() => openEditModal(bill)} variant="outline" size="sm" className="h-8 border-gray-200 hover:bg-gray-50 text-gray-700">
                         <FileEdit className="w-3.5 h-3.5 mr-1.5" /> Edit
+                      </Button>
+                      <Button onClick={() => generatePDF(bill, customer)} variant="outline" size="sm" className="h-8 border-red-200 hover:bg-red-50 text-red-600">
+                        <FileEdit className="w-3.5 h-3.5 mr-1.5" /> PDF
                       </Button>
                     </TableCell>
                   </TableRow>

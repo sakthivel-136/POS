@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 from supabase import Client
 
@@ -16,7 +16,7 @@ router = APIRouter(
 class PortalOrderCreate(BaseModel):
     items: List[schemas.BillItemCreate]
     total_amount: float
-    language: str = "english" # tamil or english
+    language: Optional[str] = "english"
 
 @router.get("/my-prices", response_model=List[dict])
 def get_my_prices(supabase: Client = Depends(get_supabase), current_user: schemas.UserResponse = Depends(auth.get_current_user)):
@@ -33,11 +33,11 @@ def get_my_prices(supabase: Client = Depends(get_supabase), current_user: schema
     
     custom_prices_res = supabase.table('customer_prices').select('*').eq('customer_id', customer['id']).execute()
     
-    price_map = {cp['product_id']: float(cp['custom_price']) for cp in custom_prices_res.data}
+    price_map = {int(cp['product_id']): float(cp['custom_price']) for cp in custom_prices_res.data}
     
     result = []
     for p in products:
-        price = price_map.get(p['id'], float(p.get('default_selling_price', 0)))
+        price = price_map.get(int(p['id']), float(p.get('default_selling_price', 0)))
         result.append({
             "product_id": p['id'],
             "product_name": p['product_name'],
@@ -60,10 +60,12 @@ def place_order(
         raise HTTPException(status_code=403, detail="You are not registered as a customer.")
         
     customer = customer_res.data[0]
-        
+    
+    final_amount = float(order.total_amount)
+    
     new_order = {
         "customer_id": customer['id'],
-        "total_amount": float(order.total_amount),
+        "total_amount": final_amount,
         "status": "pending"
     }
     

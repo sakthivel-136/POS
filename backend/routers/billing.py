@@ -16,8 +16,7 @@ router = APIRouter(
 def create_bill(bill: schemas.BillCreate, supabase: Client = Depends(get_supabase), current_user: schemas.UserResponse = Depends(auth.get_current_user)):
     # Note: Supabase REST API does not support multi-statement transactions natively. 
     # For production, this should be moved to a Supabase RPC (Postgres Function).
-    
-    # 1. Create the bill header
+    # 2. Create the bill header
     bill_data = bill.model_dump(exclude={'items'})
     bill_data['created_by'] = current_user.id
     

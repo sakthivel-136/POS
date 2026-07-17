@@ -139,3 +139,25 @@ def get_customer_summary(supabase: Client = Depends(get_supabase)):
     result.sort(key=lambda x: x["total_purchases"], reverse=True)
     
     return result
+
+@router.get("/profit")
+def get_true_net_profit(start_date: Optional[date] = None, end_date: Optional[date] = None, supabase: Client = Depends(get_supabase)):
+    bills = supabase.table('bills').select('total_amount', 'bill_date').execute().data
+    expenses = supabase.table('expenses').select('amount', 'date').execute().data
+    
+    if start_date:
+        bills = [b for b in bills if (b.get('bill_date') or '')[:10] >= start_date.isoformat()]
+        expenses = [e for e in expenses if (e.get('date') or '')[:10] >= start_date.isoformat()]
+    if end_date:
+        bills = [b for b in bills if (b.get('bill_date') or '')[:10] <= end_date.isoformat()]
+        expenses = [e for e in expenses if (e.get('date') or '')[:10] <= end_date.isoformat()]
+        
+    total_revenue = sum(float(b.get('total_amount', 0)) for b in bills)
+    total_expenses = sum(float(e.get('amount', 0)) for e in expenses)
+    net_profit = total_revenue - total_expenses
+    
+    return {
+        "total_revenue": total_revenue,
+        "total_expenses": total_expenses,
+        "net_profit": net_profit
+    }

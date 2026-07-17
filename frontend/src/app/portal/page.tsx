@@ -20,7 +20,7 @@ export default function CustomerPortal() {
   const [products, setProducts] = useState<any[]>([]);
   const [myOrders, setMyOrders] = useState<any[]>([]);
   const [productSearch, setProductSearch] = useState("");
-  const [cart, setCart] = useState<any[]>([]);
+  const [cart, setCart] = useState<{product_id: number, product_name: string, price: number, quantity: number, unit?: string, tamil_name?: string}[]>([]);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<number | null>(null);
 
@@ -148,20 +148,23 @@ export default function CustomerPortal() {
     setIsPlacingOrder(true);
     const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     try {
+      const payload: any = {
+        items: cart.map(i => ({ product_id: i.product_id, quantity: i.quantity, rate: i.price, amount: i.price * i.quantity })),
+        total_amount: totalAmount,
+        language: "english"
+      };
+
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/portal/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          items: cart.map(i => ({ product_id: i.product_id, quantity: i.quantity, rate: i.price, amount: i.price * i.quantity })),
-          total_amount: totalAmount,
-          language: "english"
-        })
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         const data = await res.json();
         setCart([]);
         setCartOpen(false);
         setOrderSuccess(data.order_id);
+        setCurrentView("my-orders");
         setTimeout(() => setOrderSuccess(null), 5000);
 
         // Fire and forget the email trigger (this runs in the background)

@@ -8,7 +8,6 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isAdminLogin, setIsAdminLogin] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -24,11 +23,10 @@ export default function LoginPage() {
     try {
       const formData = new URLSearchParams();
       formData.append("username", username);
-      if (password) {
-        formData.append("password", password);
-      } else {
-        formData.append("password", "nopass"); // To satisfy OAuth2PasswordRequestForm without triggering 422
-      }
+      // For unified login, if the user does not provide a password, we send "nopass".
+      // The backend will bypass password check for customers (since they have no password_hash).
+      // However, if it's an admin/staff account and they provide "nopass", it will correctly fail.
+      formData.append("password", password || "nopass");
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/token`, {
         method: "POST",
@@ -82,55 +80,42 @@ export default function LoginPage() {
               </svg>
             </div>
             <h1 className="text-3xl font-bold tracking-tight">Sakthi Spices ERP</h1>
-            <p className="text-muted-foreground">{isAdminLogin ? "Sign in to your Staff Account" : "Sign in to the Customer Portal"}</p>
+            <p className="text-muted-foreground">Sign in to your account</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2 text-left">
-              <label className="text-sm font-medium" htmlFor="username">Phone Number {isAdminLogin && "or Username"}</label>
+              <label className="text-sm font-medium" htmlFor="username">Phone Number or Username</label>
               <Input 
                 id="username"
                 className="w-full px-4 py-6 rounded-xl border bg-white/5 border-white/10 focus:outline-none focus:ring-2 focus:ring-primary backdrop-blur-sm transition-all"
-                placeholder={isAdminLogin ? "e.g. SAKTHI or Phone" : "Enter your mobile number"}
+                placeholder="Enter your phone or username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
               />
             </div>
 
-            {isAdminLogin && (
-              <div className="space-y-2 text-left animate-in fade-in slide-in-from-top-2">
-                <label className="text-sm font-medium" htmlFor="password">Password</label>
-                <Input 
-                  id="password"
-                  type="password"
-                  className="w-full px-4 py-6 rounded-xl border bg-white/5 border-white/10 focus:outline-none focus:ring-2 focus:ring-primary backdrop-blur-sm transition-all"
-                  placeholder="Required for Admin/Staff"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required={isAdminLogin}
-                />
-              </div>
-            )}
+            <div className="space-y-2 text-left">
+              <label className="text-sm font-medium" htmlFor="password">Password (Optional for Customers)</label>
+              <Input 
+                id="password"
+                type="password"
+                className="w-full px-4 py-6 rounded-xl border bg-white/5 border-white/10 focus:outline-none focus:ring-2 focus:ring-primary backdrop-blur-sm transition-all"
+                placeholder="Leave blank if you are a customer"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
 
             <Button 
               type="submit" 
-              className="w-full py-6 text-lg rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all bg-primary hover:bg-primary/90 text-primary-foreground"
+              className="w-full py-6 text-lg rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all bg-primary hover:bg-primary/90 text-primary-foreground mt-4"
               disabled={isLoading}
             >
               {isLoading ? "Authenticating..." : "Sign In"}
             </Button>
           </form>
-          
-          <div className="pt-4 border-t border-white/10">
-            <button 
-              type="button" 
-              onClick={() => { setIsAdminLogin(!isAdminLogin); setPassword(""); }} 
-              className="text-sm text-primary hover:underline"
-            >
-              {isAdminLogin ? "Are you a customer? Login here" : "Staff or Admin? Login here"}
-            </button>
-          </div>
         </div>
       </div>
     </div>

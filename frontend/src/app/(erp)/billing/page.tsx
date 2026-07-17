@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trash2, Search, CheckCircle2, Download as DownloadIcon, IndianRupee } from "lucide-react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { generateBillPDF } from "@/utils/pdfGenerator";
 
 export default function BillingPOS() {
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
@@ -13,6 +12,7 @@ export default function BillingPOS() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [savedBillId, setSavedBillId] = useState<number | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Payment mode state
   const [paymentMode, setPaymentMode] = useState<"unpaid" | "partially_paid" | "paid">("unpaid");
@@ -77,12 +77,7 @@ export default function BillingPOS() {
       paid_amount: effectivePaid,
       pending_amount: effectivePending,
       status: paymentMode === "paid" ? "paid" : paymentMode === "partially_paid" ? "partially_paid" : "unpaid",
-      items: items.map(item => ({
-        product_id: item.id,
-        quantity: item.qty,
-        rate: item.rateToUse,
-        amount: item.rateToUse * item.qty
-      }))
+      items: items.map(i => ({ product_id: i.id, quantity: i.qty, rate: i.rateToUse, amount: i.qty * i.rateToUse }))
     };
 
     try {
@@ -116,57 +111,20 @@ export default function BillingPOS() {
     if (!selectedCustomer) return alert("Select a customer");
     if (items.length === 0) return alert("Add items to bill");
 
-    const doc = new jsPDF();
-    const customerName = selectedCustomer.customer_name;
-
     // Save first to get real bill ID
     const savedData = await handleSaveBill();
     const billId = savedData?.id || savedBillId || "DRAFT";
 
-    doc.setFontSize(20);
-    doc.setTextColor(40, 40, 40);
-    doc.text("Sakthi Spices ERP", 14, 22);
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Invoice #${billId}`, 14, 30);
-    doc.text(`Date: ${new Date().toLocaleDateString("en-IN")}`, 14, 35);
+    // Prepare bill mock object
+    const billMock = {
+      id: billId,
+      bill_date: new Date().toISOString(),
+      total_amount: grandTotal,
+      paid_amount: effectivePaid,
+      pending_amount: effectivePending
+    };
 
-    doc.setFontSize(12);
-    doc.setTextColor(40, 40, 40);
-    doc.text("Bill To:", 14, 50);
-    doc.setFontSize(10);
-    doc.text(customerName, 14, 55);
-    if (selectedCustomer?.phone_number) doc.text(`Phone: ${selectedCustomer.phone_number}`, 14, 60);
-
-    const tableRows = items.map((item, index) => [
-      index + 1,
-      item.product_name || item.name,
-      item.qty,
-      `Rs ${item.rateToUse}`,
-      `Rs ${item.rateToUse * item.qty}`
-    ]);
-
-    autoTable(doc, {
-      head: [["#", "Product", "Qty", "Rate", "Total"]],
-      body: tableRows,
-      startY: 70,
-      theme: "grid",
-      headStyles: { fillColor: [26, 23, 82] }
-    });
-
-    const finalY = (doc as any).lastAutoTable.finalY + 10;
-    doc.setFontSize(10);
-    doc.text(`Subtotal: Rs ${currentBillAmount}`, 140, finalY);
-    doc.text(`Previous Pending: Rs ${previousPending}`, 140, finalY + 7);
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text(`Grand Total: Rs ${grandTotal}`, 140, finalY + 15);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Paid: Rs ${effectivePaid}`, 140, finalY + 22);
-    doc.text(`Pending: Rs ${effectivePending}`, 140, finalY + 29);
-
-    doc.save(`Invoice_${billId}_${customerName}.pdf`);
+    await generateBillPDF(billMock, selectedCustomer, items);
   };
 
   const filteredProducts = products.filter(p =>
@@ -202,7 +160,7 @@ export default function BillingPOS() {
                       if (res.ok) {
                         const prices = await res.json();
                         const priceMap: any = {};
-                        prices.forEach((p: any) => { priceMap[p.product_id] = p.custom_price; });
+                        prices.forEach((p: any) => { priceMap[Number(p.product_id)] = p.custom_price; });
                         setCustomerRates(priceMap);
                       }
                     } catch (err) {}
@@ -248,7 +206,8 @@ export default function BillingPOS() {
           <CardContent className="flex-1 overflow-y-auto">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {filteredProducts.map(p => {
-                const rate = customerRates[p.id] !== undefined ? customerRates[p.id] : (p.default_selling_price || 0);
+                const pId = Number(p.id);
+                const rate = customerRates[pId] !== undefined ? customerRates[pId] : (p.default_selling_price || 0);
                 return (
                   <button
                     key={p.id}

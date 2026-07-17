@@ -14,6 +14,7 @@ export default function SettingsPage() {
   const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selectedRole, setSelectedRole] = useState("staff");
+  const [staffPassword, setStaffPassword] = useState("");
   const router = useRouter();
 
   const fetchPendingUsers = async () => {
@@ -36,14 +37,23 @@ export default function SettingsPage() {
   const openRoleModal = (id: number) => {
     setSelectedUserId(id);
     setSelectedRole("staff");
+    setStaffPassword("");
     setRoleModalOpen(true);
   };
 
   const handleApproveConfirm = async () => {
     if (selectedUserId === null) return;
+    if (selectedRole !== "customer" && !staffPassword) {
+      alert("Please provide a password for the staff member.");
+      return;
+    }
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/admin/approve_user/${selectedUserId}?action=approve&role=${selectedRole}`, {
+      let url = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/admin/approve_user/${selectedUserId}?action=approve&role=${selectedRole}`;
+      if (selectedRole !== "customer" && staffPassword) {
+        url += `&password=${encodeURIComponent(staffPassword)}`;
+      }
+      const res = await fetch(url, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -292,6 +302,20 @@ export default function SettingsPage() {
                   <option value="admin">Admin</option>
                 </select>
               </div>
+
+              {selectedRole !== "customer" && (
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Set Password for Staff/Admin</label>
+                  <input 
+                    type="text"
+                    placeholder="Enter a secure password..."
+                    className="w-full border rounded-lg p-2.5 bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={staffPassword}
+                    onChange={(e) => setStaffPassword(e.target.value)}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">This user will use this password to log in.</p>
+                </div>
+              )}
             </div>
             
             <div className="flex justify-end gap-3 mt-6">

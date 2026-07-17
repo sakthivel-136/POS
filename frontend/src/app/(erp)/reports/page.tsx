@@ -319,21 +319,64 @@ export default function ReportsPage() {
       </div>
 
       {/* Customer Wise Report */}
-      <Card className="glass-card max-w-2xl">
-        <CardHeader>
-          <CardTitle className="flex items-center"><Users className="w-5 h-5 mr-2 text-orange-600" /> Customer-Wise Report</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Lifetime purchases, total paid, and outstanding balances aggregated for every customer.
-          </p>
+      <div className="grid md:grid-cols-2 gap-6 pb-8">
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle className="flex items-center"><Users className="w-5 h-5 mr-2 text-orange-600" /> Customer-Wise Report</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Lifetime purchases, total paid, and outstanding balances aggregated for every customer.
+            </p>
 
-          <Button onClick={downloadCustomerReport} disabled={!!isGenerating} className="w-full bg-orange-600 hover:bg-orange-700 text-white">
-            <Download className="w-4 h-4 mr-2" />
-            {isGenerating === "customers" ? "Generating PDF..." : "Download Customer Report PDF"}
-          </Button>
-        </CardContent>
-      </Card>
+            <Button onClick={downloadCustomerReport} disabled={!!isGenerating} className="w-full bg-orange-600 hover:bg-orange-700 text-white">
+              <Download className="w-4 h-4 mr-2" />
+              {isGenerating === "customers" ? "Generating PDF..." : "Download Customer Report PDF"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Profit & Loss Report */}
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle className="flex items-center"><BarChart3 className="w-5 h-5 mr-2 text-emerald-600" /> Profit & Loss Report</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Calculate True Net Profit (Total Revenue - Total Expenses).
+            </p>
+
+            <div className="flex gap-4">
+              <div className="flex-1 space-y-1">
+                <label className="text-xs font-semibold">Start Date</label>
+                <Input type="date" id="profit-start" className="bg-white/5 border-white/10" />
+              </div>
+              <div className="flex-1 space-y-1">
+                <label className="text-xs font-semibold">End Date</label>
+                <Input type="date" id="profit-end" className="bg-white/5 border-white/10" />
+              </div>
+            </div>
+
+            <Button onClick={async () => {
+              const sd = (document.getElementById('profit-start') as HTMLInputElement).value;
+              const ed = (document.getElementById('profit-end') as HTMLInputElement).value;
+              const token = localStorage.getItem("token");
+              let url = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/reports/profit`;
+              if (sd && ed) url += `?start_date=${sd}&end_date=${ed}`;
+              try {
+                const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+                const data = await res.json();
+                alert(`True Net Profit Report\n\nRevenue: ₹${data.total_revenue}\nExpenses: ₹${data.total_expenses}\n\nNet Profit: ₹${data.net_profit}`);
+              } catch (e) {
+                alert("Failed to fetch profit data");
+              }
+            }} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              View Profit & Loss
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

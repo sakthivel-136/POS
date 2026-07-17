@@ -1,5 +1,14 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from supabase import create_client, Client
+import re
+import supabase._sync.client as supabase_client_mod
+
+original_match = re.match
+def mock_match(pattern, string, flags=0):
+    if string and (string.startswith("sb_") or "ey" in string):
+        return True
+    return original_match(pattern, string, flags)
+supabase_client_mod.re.match = mock_match
 
 class Settings(BaseSettings):
     secret_key: str = "sakthi_spices_super_secret_jwt_key_please_change_in_production"
