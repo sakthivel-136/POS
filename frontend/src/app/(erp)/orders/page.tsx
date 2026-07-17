@@ -141,7 +141,7 @@ export default function OrdersPage() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/orders/${deliverOrder.id}/process`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "delivered", amount_paid: paid })
+        body: JSON.stringify({ status: "delivered", amount_paid: paid, payment_status: paymentType })
       });
 
       if (res.ok) {

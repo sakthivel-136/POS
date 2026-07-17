@@ -80,7 +80,7 @@ def process_order(order_id: int, update: OrderProcessUpdate, supabase: Client = 
         grand_total = total + previous_pending
         paid = float(update.amount_paid)
         
-        if paid >= grand_total:
+        if update.payment_status == "paid" or paid >= grand_total:
             bill_status = "paid"
             paid = grand_total
             pending = 0.0

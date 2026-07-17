@@ -59,7 +59,7 @@ def create_bill(bill: schemas.BillCreate, supabase: Client = Depends(get_supabas
 
     return db_bill
 
-@router.get("/", response_model=List[schemas.BillResponse])
+@router.get("/")
 def get_bills(skip: int = 0, limit: int = 100, supabase: Client = Depends(get_supabase)):
     res = supabase.table('bills').select('*, bill_items(*)').order('bill_date', desc=True).range(skip, skip + limit - 1).execute()
     return res.data
