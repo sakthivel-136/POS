@@ -62,6 +62,10 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), sup
             role = "admin"
             status = "active"
             hashed_pw = auth.get_password_hash(form_data.password)
+        elif found_customer:
+            role = "customer"
+            status = "active"
+            hashed_pw = None
         else:
             role = "staff"
             status = "pending"
@@ -85,6 +89,10 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), sup
             else:
                 raise e
         user = res.data[0]
+        
+        # Link the new user to the customer record
+        if found_customer:
+            supabase.table('customers').update({'user_id': user['id']}).eq('id', found_customer['id']).execute()
     else:
         # Verify password if user exists (mainly for admin)
         if user.get('password_hash') and not auth.verify_password(form_data.password, user.get('password_hash')):
