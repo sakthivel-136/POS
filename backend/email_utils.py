@@ -110,8 +110,7 @@ def _send_order_email(customer_name: str, shop_name: str, order_id: int, items: 
         msg["To"] = ", ".join(NOTIFY_EMAILS)
         msg.attach(MIMEText(html_body, "html", "utf-8"))
 
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
+        with smtplib.SMTP_SSL(SMTP_HOST, 465, timeout=10) as server:
             server.login(SENDER_EMAIL, SENDER_PASSWORD)
             server.sendmail(SENDER_EMAIL, NOTIFY_EMAILS, msg.as_string())
 
