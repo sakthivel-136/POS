@@ -81,10 +81,24 @@ export default function OrdersPage() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [fetchOrders]);
 
-  const openDeliverModal = (order: any) => {
+  const [customerPending, setCustomerPending] = useState(0);
+
+  const openDeliverModal = async (order: any) => {
     setDeliverOrder(order);
     setPaymentType("unpaid");
     setAmountPaid("");
+    setCustomerPending(0);
+    
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing/${order.customer_id}/pending`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCustomerPending(data.previous_pending || 0);
+      }
+    } catch(e) {}
   };
 
   const openEditModal = (order: any) => {
@@ -320,11 +334,22 @@ export default function OrdersPage() {
 
             <div className="p-6 space-y-5">
               {/* Bill Total */}
-              <div className="bg-gray-50 rounded-xl p-4 flex justify-between items-center border">
-                <span className="font-medium text-gray-600">Order Total</span>
-                <span className="text-2xl font-bold text-gray-900">₹{deliverTotal.toFixed(2)}</span>
+              <div className="bg-gray-50 rounded-xl p-4 border space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-gray-600">Order Total</span>
+                  <span className="text-xl font-bold text-gray-900">₹{deliverTotal.toFixed(2)}</span>
+                </div>
+                {customerPending > 0 && (
+                  <div className="flex justify-between items-center text-red-600">
+                    <span className="font-medium text-sm">Previous Pending Balance</span>
+                    <span className="font-bold">₹{customerPending.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="pt-2 mt-2 border-t flex justify-between items-center">
+                  <span className="font-bold text-gray-700">Grand Total</span>
+                  <span className="text-2xl font-black text-emerald-700">₹{(deliverTotal + customerPending).toFixed(2)}</span>
+                </div>
               </div>
-              <p className="text-xs text-gray-500 italic mt-1">* Any previous pending balance for this customer will be automatically added to the final bill.</p>
 
               {/* Payment Status Selection */}
               <div className="space-y-3">
@@ -363,13 +388,13 @@ export default function OrdersPage() {
                       placeholder="Enter amount received"
                       className="pl-8"
                       value={amountPaid}
-                      max={deliverTotal}
+                      max={deliverTotal + customerPending}
                       onChange={e => setAmountPaid(e.target.value)}
                     />
                   </div>
                   {partialPaid > 0 && (
                     <p className="text-xs text-amber-600 font-medium">
-                      Pending: ₹{(deliverTotal - partialPaid).toFixed(2)} will be added to customer's balance.
+                      Pending: ₹{Math.max(0, (deliverTotal + customerPending) - partialPaid).toFixed(2)} will be left as balance.
                     </p>
                   )}
                 </div>
@@ -377,13 +402,13 @@ export default function OrdersPage() {
 
               {paymentType === "paid" && (
                 <p className="text-sm text-emerald-600 font-medium bg-emerald-50 p-3 rounded-xl">
-                  ✓ Full amount of ₹{deliverTotal.toFixed(2)} marked as received.
+                  ✓ Full amount of ₹{(deliverTotal + customerPending).toFixed(2)} marked as received (clears all balances).
                 </p>
               )}
 
               {paymentType === "unpaid" && (
                 <p className="text-sm text-red-600 font-medium bg-red-50 p-3 rounded-xl">
-                  ₹{deliverTotal.toFixed(2)} will be added as a pending balance for this customer.
+                  ₹{deliverTotal.toFixed(2)} will be added to pending balance. Total pending will be ₹{(deliverTotal + customerPending).toFixed(2)}.
                 </p>
               )}
             </div>
