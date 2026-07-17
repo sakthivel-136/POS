@@ -10,7 +10,7 @@ from database import get_supabase
 router = APIRouter(
     prefix="/orders",
     tags=["Admin Orders"],
-    dependencies=[Depends(auth.get_current_active_admin)]
+    dependencies=[Depends(auth.get_current_active_admin_or_staff)]
 )
 
 class OrderProcessUpdate(BaseModel):

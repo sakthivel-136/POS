@@ -54,3 +54,8 @@ async def get_current_active_admin(current_user: UserResponse = Depends(get_curr
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not enough permissions")
     return current_user
+
+async def get_current_active_admin_or_staff(current_user: UserResponse = Depends(get_current_user)):
+    if current_user.role not in ["admin", "staff"]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    return current_user
