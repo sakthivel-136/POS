@@ -170,3 +170,12 @@ def get_portal_my_orders(supabase: Client = Depends(get_supabase), current_user:
     
     orders_res = supabase.table('orders').select('*, order_items(*, product:products(product_name, tamil_name, unit))').eq('customer_id', customer['id']).order('created_at', desc=True).execute()
     return orders_res.data
+
+@router.get("/test-email-error")
+def test_email_error():
+    import traceback
+    try:
+        _send_order_email("Test", "Test Shop", 999, [], 100.0)
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
