@@ -104,17 +104,32 @@ def _send_order_email(customer_name: str, shop_name: str, order_id: int, items: 
 </body>
 </html>"""
 
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = f"Sakthi Spices ERP <{SENDER_EMAIL}>"
-        msg["To"] = ", ".join(NOTIFY_EMAILS)
-        msg.attach(MIMEText(html_body, "html", "utf-8"))
+        import json
+        import urllib.request
+        
+        RESEND_API_KEY = "re_J3i3vGYk_Jys69tng5r4XSHE8Kv6X4NZv"
+        
+        data = {
+            "from": "Sakthi Spices ERP <onboarding@resend.dev>",
+            "to": NOTIFY_EMAILS,
+            "subject": subject,
+            "html": html_body
+        }
+        
+        req = urllib.request.Request(
+            "https://api.resend.com/emails",
+            data=json.dumps(data).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            method="POST"
+        )
+        
+        with urllib.request.urlopen(req, timeout=10) as response:
+            response.read()
 
-        with smtplib.SMTP_SSL(SMTP_HOST, 465, timeout=10) as server:
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.sendmail(SENDER_EMAIL, NOTIFY_EMAILS, msg.as_string())
-
-        print(f"[EMAIL] Order #{order_id} notification sent to {NOTIFY_EMAILS}")
+        print(f"[EMAIL] Order #{order_id} notification sent to {NOTIFY_EMAILS} via Resend")
 
     except Exception as e:
         print(f"[EMAIL ERROR] Failed to send order notification: {e}")
