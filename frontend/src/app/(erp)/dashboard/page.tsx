@@ -71,7 +71,14 @@ export default function DashboardPage() {
           <CardContent className="p-5">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">This Month Sales</p>
             <h3 className="text-2xl font-bold text-indigo-500 mb-1">₹{kpis.this_month_sales || 0}</h3>
-            <p className="text-[10px] text-gray-400">Total this month</p>
+            <p className="text-[10px] text-gray-400">
+              {kpis.month_growth_pct !== undefined ? (
+                <span className={kpis.month_growth_pct >= 0 ? "text-green-500 font-semibold" : "text-red-500 font-semibold"}>
+                  {kpis.month_growth_pct >= 0 ? '↑' : '↓'} {Math.abs(kpis.month_growth_pct)}% 
+                </span>
+              ) : null}
+              {kpis.month_growth_pct !== undefined ? " vs last month" : "Total this month"}
+            </p>
           </CardContent>
         </Card>
 

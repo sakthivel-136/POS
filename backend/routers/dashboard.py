@@ -31,6 +31,18 @@ def get_dashboard_kpis(supabase: Client = Depends(get_supabase)):
     this_month_bills = [b for b in all_bills if b.get('bill_date', '').startswith(this_month_str)]
     this_month_sales = sum(float(b['total_amount']) for b in this_month_bills)
     
+    # Last Month Sales
+    today_date = date.today()
+    last_month_date = today_date.replace(day=1) - timedelta(days=1)
+    last_month_str = last_month_date.isoformat()[:7] # e.g. '2026-06'
+    last_month_bills = [b for b in all_bills if b.get('bill_date', '').startswith(last_month_str)]
+    last_month_sales = sum(float(b['total_amount']) for b in last_month_bills)
+    
+    if last_month_sales > 0:
+        month_growth_pct = ((this_month_sales - last_month_sales) / last_month_sales) * 100
+    else:
+        month_growth_pct = 100.0 if this_month_sales > 0 else 0.0
+    
     # Total Sales
     total_sales = sum(float(b['total_amount']) for b in all_bills)
     
@@ -71,6 +83,8 @@ def get_dashboard_kpis(supabase: Client = Depends(get_supabase)):
     return {
         "todays_sales": todays_sales,
         "this_month_sales": this_month_sales,
+        "last_month_sales": last_month_sales,
+        "month_growth_pct": round(month_growth_pct, 1),
         "total_sales": total_sales,
         "todays_collection": todays_collection,
         "todays_bills_count": len(todays_bills),

@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Download, BarChart3, Package } from "lucide-react";
+import { Download, BarChart3, Package, Users } from "lucide-react";
 import { useState, useRef } from "react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -203,6 +203,61 @@ export default function ReportsPage() {
     }
   };
 
+  const downloadCustomerReport = async () => {
+    setIsGenerating("customers");
+    const token = localStorage.getItem("token");
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/reports/customer-summary`, { headers: { Authorization: `Bearer ${token}` } });
+      const data: any[] = await res.json();
+
+      const rows = data.map(row => {
+        return `
+          <tr>
+            <td><strong>${row.shop_name || row.customer_name}</strong></td>
+            <td>${row.phone_number || "—"}</td>
+            <td>${row.bill_count}</td>
+            <td>₹${row.total_purchases.toFixed(2)}</td>
+            <td>₹${row.total_paid.toFixed(2)}</td>
+            <td><span class="${row.total_pending > 0 ? 'badge-unpaid' : 'badge-paid'}">₹${row.total_pending.toFixed(2)}</span></td>
+          </tr>`;
+      }).join("");
+
+      const grandTotalPurchases = data.reduce((s, r) => s + r.total_purchases, 0);
+      const grandTotalPending = data.reduce((s, r) => s + r.total_pending, 0);
+
+      const tableHtml = `
+        ${tableStyle("#ea580c")}
+        <table>
+          <thead><tr>
+            <th>Customer / Shop</th><th>Phone</th><th>Bills</th><th>Total Purchases (₹)</th><th>Total Paid (₹)</th><th>Total Pending (₹)</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3" style="font-weight:700;padding-top:12px">Grand Total</td>
+              <td style="font-weight:700;color:#1a1752">₹${grandTotalPurchases.toFixed(2)}</td>
+              <td></td>
+              <td style="font-weight:700;color:#dc2626">₹${grandTotalPending.toFixed(2)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      `;
+
+      await generatePDFFromHTML(
+        "Customer-Wise Sales Report — Sakthi Spices",
+        `Generated on ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })} • ${data.length} Customers`,
+        tableHtml,
+        "Customer_Sales_Report.pdf"
+      );
+    } catch (e) {
+      console.error(e);
+      alert("Failed to generate customer report");
+    } finally {
+      setIsGenerating(null);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
@@ -262,6 +317,23 @@ export default function ReportsPage() {
         </Card>
 
       </div>
+
+      {/* Customer Wise Report */}
+      <Card className="glass-card max-w-2xl">
+        <CardHeader>
+          <CardTitle className="flex items-center"><Users className="w-5 h-5 mr-2 text-orange-600" /> Customer-Wise Report</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Lifetime purchases, total paid, and outstanding balances aggregated for every customer.
+          </p>
+
+          <Button onClick={downloadCustomerReport} disabled={!!isGenerating} className="w-full bg-orange-600 hover:bg-orange-700 text-white">
+            <Download className="w-4 h-4 mr-2" />
+            {isGenerating === "customers" ? "Generating PDF..." : "Download Customer Report PDF"}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

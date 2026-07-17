@@ -11,6 +11,9 @@ export default function SettingsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('data');
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedRole, setSelectedRole] = useState("staff");
   const router = useRouter();
 
   const fetchPendingUsers = async () => {
@@ -30,13 +33,33 @@ export default function SettingsPage() {
     fetchPendingUsers();
   }, []);
 
-  const handleApprove = async (id: number, action: 'approve' | 'reject') => {
-    const token = localStorage.getItem("token");
-    const role = window.prompt("Assign role (staff or customer):", "staff");
-    if (!role) return;
+  const openRoleModal = (id: number) => {
+    setSelectedUserId(id);
+    setSelectedRole("staff");
+    setRoleModalOpen(true);
+  };
 
+  const handleApproveConfirm = async () => {
+    if (selectedUserId === null) return;
+    const token = localStorage.getItem("token");
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/admin/approve_user/${id}?action=${action}&role=${role}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/admin/approve_user/${selectedUserId}?action=approve&role=${selectedRole}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        fetchPendingUsers();
+        setRoleModalOpen(false);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleReject = async (id: number) => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/admin/approve_user/${id}?action=reject&role=staff`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -190,10 +213,10 @@ export default function SettingsPage() {
                             <p className="text-xs text-gray-500">Requested Access</p>
                           </div>
                           <div className="space-x-2">
-                            <Button onClick={() => handleApprove(user.id, 'approve')} size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-white">
+                            <Button onClick={() => openRoleModal(user.id)} size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-white">
                               <CheckCircle className="w-4 h-4 mr-1" /> Approve
                             </Button>
-                            <Button onClick={() => handleApprove(user.id, 'reject')} size="sm" variant="destructive">
+                            <Button onClick={() => handleReject(user.id)} size="sm" variant="destructive">
                               <XCircle className="w-4 h-4 mr-1" /> Reject
                             </Button>
                           </div>
@@ -250,6 +273,39 @@ export default function SettingsPage() {
 
         </div>
       </div>
+
+      {/* Role Assignment Modal */}
+      {roleModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md animate-in zoom-in-95 duration-200">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Assign Role</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">Select Role for User</label>
+                <select 
+                  className="w-full border rounded-lg p-2.5 bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none"
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value)}
+                >
+                  <option value="customer">Customer</option>
+                  <option value="staff">Staff</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <Button variant="outline" onClick={() => setRoleModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleApproveConfirm} className="bg-blue-600 hover:bg-blue-700 text-white">
+                Confirm & Approve
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

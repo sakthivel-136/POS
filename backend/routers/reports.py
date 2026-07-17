@@ -108,3 +108,34 @@ def get_outstanding_report(supabase: Client = Depends(get_supabase)):
                 })
             
     return result
+
+@router.get("/customer-summary")
+def get_customer_summary(supabase: Client = Depends(get_supabase)):
+    bills = supabase.table('bills').select('*').execute().data
+    customers = supabase.table('customers').select('*').execute().data
+    
+    summary = {}
+    for c in customers:
+        summary[c['id']] = {
+            "customer_name": c['customer_name'],
+            "shop_name": c.get('shop_name', ''),
+            "phone_number": c.get('phone_number', ''),
+            "total_purchases": 0,
+            "total_paid": 0,
+            "total_pending": 0,
+            "bill_count": 0
+        }
+        
+    for b in bills:
+        cid = b.get('customer_id')
+        if cid in summary:
+            summary[cid]["total_purchases"] += float(b.get('total_amount', 0) or 0)
+            summary[cid]["total_paid"] += float(b.get('paid_amount', 0) or 0)
+            summary[cid]["total_pending"] += float(b.get('pending_amount', 0) or 0)
+            summary[cid]["bill_count"] += 1
+            
+    # Remove customers with 0 bills to keep report clean
+    result = [s for s in summary.values() if s["bill_count"] > 0]
+    result.sort(key=lambda x: x["total_purchases"], reverse=True)
+    
+    return result
