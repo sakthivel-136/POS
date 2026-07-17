@@ -80,31 +80,46 @@ def place_order(
         }
         supabase.table('order_items').insert(new_item).execute()
 
-    # Fetch product names for the email
-    product_ids = [item.product_id for item in order.items]
-    products_res = supabase.table('products').select('id, product_name').in_('id', product_ids).execute()
-    product_map = {p['id']: p['product_name'] for p in (products_res.data or [])}
+    return {"message": "Order placed successfully", "order_id": db_order['id']}
 
-    email_items = [
-        {
-            "product_name": product_map.get(item.product_id, f"Product #{item.product_id}"),
-            "quantity": item.quantity,
-            "rate": item.rate,
-            "amount": item.amount
-        }
-        for item in order.items
-    ]
+@router.post("/orders/{order_id}/email")
+def trigger_order_email(
+    order_id: int,
+    supabase: Client = Depends(get_supabase),
+    current_user: schemas.UserResponse = Depends(auth.get_current_user)
+):
+    # Verify customer
+    customer_res = supabase.table('customers').select('*').eq('user_id', current_user.id).execute()
+    if not customer_res.data:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    customer = customer_res.data[0]
 
-    # Send email synchronously to prevent Render from suspending the container before it finishes
+    # Fetch order
+    order_res = supabase.table('orders').select('*').eq('id', order_id).eq('customer_id', customer['id']).execute()
+    if not order_res.data:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order = order_res.data[0]
+
+    # Fetch items
+    items_res = supabase.table('order_items').select('*, product:products(product_name)').eq('order_id', order_id).execute()
+    email_items = []
+    for item in (items_res.data or []):
+        email_items.append({
+            "product_name": item.get('product', {}).get('product_name', f"Product #{item['product_id']}"),
+            "quantity": item['quantity'],
+            "rate": item['rate'],
+            "amount": item['amount']
+        })
+
+    # Send email synchronously to keep container alive
     _send_order_email(
         customer.get('customer_name', 'Customer'),
         customer.get('shop_name', ''),
-        db_order['id'],
+        order['id'],
         email_items,
-        float(order.total_amount)
+        float(order['total_amount'])
     )
-
-    return {"message": "Order placed successfully", "order_id": db_order['id']}
+    return {"message": "Email sent"}
 
 @router.get("/dashboard")
 def get_portal_dashboard(supabase: Client = Depends(get_supabase), current_user: schemas.UserResponse = Depends(auth.get_current_user)):

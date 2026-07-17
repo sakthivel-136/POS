@@ -163,6 +163,13 @@ export default function CustomerPortal() {
         setCartOpen(false);
         setOrderSuccess(data.order_id);
         setTimeout(() => setOrderSuccess(null), 5000);
+
+        // Fire and forget the email trigger (this runs in the background)
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/portal/orders/${data.order_id}/email`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(err => console.error("Failed to trigger email", err));
+
       } else alert("Failed to place order.");
     } catch { alert("Network error."); }
     setIsPlacingOrder(false);
