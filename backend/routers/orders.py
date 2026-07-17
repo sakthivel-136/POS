@@ -72,18 +72,24 @@ def process_order(order_id: int, update: OrderProcessUpdate, supabase: Client = 
         max_id_res = supabase.table('bills').select('id').order('id', desc=True).limit(1).execute()
         next_id = (max_id_res.data[0]['id'] + 1) if max_id_res.data else 1
 
+        # Fetch customer's previous pending amount
+        customer_bills_res = supabase.table('bills').select('pending_amount').eq('customer_id', order['customer_id']).execute()
+        previous_pending = sum(float(b.get('pending_amount') or 0) for b in customer_bills_res.data)
+
         total = float(order['total_amount'])
+        grand_total = total + previous_pending
         paid = float(update.amount_paid)
-        pending = total - paid
         
-        if paid >= total:
+        if paid >= grand_total:
             bill_status = "paid"
-            paid = total
+            paid = grand_total
             pending = 0.0
         elif paid > 0:
             bill_status = "partially_paid"
+            pending = grand_total - paid
         else:
             bill_status = "unpaid"
+            pending = grand_total
 
         # Create a bill from this order
         new_bill = {

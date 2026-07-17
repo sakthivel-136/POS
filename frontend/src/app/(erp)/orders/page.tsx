@@ -324,6 +324,7 @@ export default function OrdersPage() {
                 <span className="font-medium text-gray-600">Order Total</span>
                 <span className="text-2xl font-bold text-gray-900">₹{deliverTotal.toFixed(2)}</span>
               </div>
+              <p className="text-xs text-gray-500 italic mt-1">* Any previous pending balance for this customer will be automatically added to the final bill.</p>
 
               {/* Payment Status Selection */}
               <div className="space-y-3">
