@@ -114,9 +114,12 @@ def _send_order_email(customer_name: str, shop_name: str, order_id: int, items: 
             print("[EMAIL ERROR] RESEND_API_KEY is not set in environment variables.")
             return
             
+        # Resend free tier only allows sending to the registered email address unless domain is verified
+        ALLOWED_EMAIL = "c.sakthivel1.3.2006@gmail.com"
+            
         data = {
             "from": "Sakthi Spices ERP <onboarding@resend.dev>",
-            "to": NOTIFY_EMAILS,
+            "to": [ALLOWED_EMAIL],
             "subject": subject,
             "html": html_body
         }
@@ -126,7 +129,8 @@ def _send_order_email(customer_name: str, shop_name: str, order_id: int, items: 
             data=json.dumps(data).encode("utf-8"),
             headers={
                 "Authorization": f"Bearer {RESEND_API_KEY}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
             },
             method="POST"
         )
@@ -134,7 +138,7 @@ def _send_order_email(customer_name: str, shop_name: str, order_id: int, items: 
         with urllib.request.urlopen(req, timeout=10) as response:
             response.read()
 
-        print(f"[EMAIL] Order #{order_id} notification sent to {NOTIFY_EMAILS} via Resend")
+        print(f"[EMAIL] Order #{order_id} notification sent to {ALLOWED_EMAIL} via Resend")
 
     except Exception as e:
         print(f"[EMAIL ERROR] Failed to send order notification: {e}")
