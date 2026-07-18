@@ -625,20 +625,33 @@ export default function CustomerPortal() {
             </div>
 
             {/* Footer */}
-            <div className="px-5 pb-6 pt-4 border-t space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">{cart.length} items • {cartCount} units</span>
-                <span className="text-2xl font-bold text-emerald-600">₹{cartTotal.toFixed(0)}</span>
+            <div className="px-5 pb-6 pt-4 border-t space-y-3">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-600 font-medium">Cart Total ({cart.length} items)</span>
+                <span className="font-bold text-gray-900">₹{cartTotal.toFixed(0)}</span>
               </div>
+              
+              {dashboardData?.pending_amount > 0 && (
+                <div className="flex justify-between items-center text-sm text-red-600">
+                  <span className="font-medium">Previous Pending</span>
+                  <span className="font-bold">+ ₹{dashboardData.pending_amount.toFixed(0)}</span>
+                </div>
+              )}
+              
+              <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                <span className="font-bold text-gray-800">Grand Total</span>
+                <span className="text-2xl font-bold text-emerald-600">₹{(cartTotal + (dashboardData?.pending_amount || 0)).toFixed(0)}</span>
+              </div>
+
               <button
                 onClick={placeOrder}
                 disabled={isPlacingOrder}
-                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-base rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full mt-2 py-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-base rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isPlacingOrder ? (
                   <><div className="w-5 h-5 border-2 border-white/50 border-t-white rounded-full animate-spin" /> Placing Order...</>
                 ) : (
-                  <><CheckCircle2 className="w-5 h-5" /> Place Order — ₹{cartTotal.toFixed(0)}</>
+                  <><CheckCircle2 className="w-5 h-5" /> Place Order — ₹{(cartTotal + (dashboardData?.pending_amount || 0)).toFixed(0)}</>
                 )}
               </button>
             </div>

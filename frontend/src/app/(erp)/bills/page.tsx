@@ -77,9 +77,11 @@ export default function BillsPage() {
   }), [bills]);
 
   const openEditModal = (bill: any) => {
+    const grandTotal = parseFloat(bill.paid_amount || 0) + parseFloat(bill.pending_amount || 0);
     setEditingBill({
       id: bill.id,
       total_amount: bill.total_amount,
+      grand_total: grandTotal,
       paid_amount: bill.paid_amount || "0",
       pending_amount: bill.pending_amount,
       status: bill.status
@@ -107,9 +109,9 @@ export default function BillsPage() {
 
   const handlePaidChange = (newPaid: string) => {
     const paid = parseFloat(newPaid) || 0;
-    const total = parseFloat(editingBill.total_amount);
-    const pending = Math.max(0, total - paid);
-    let status = paid >= total ? "paid" : paid > 0 ? "partially_paid" : "unpaid";
+    const grandTotal = editingBill.grand_total;
+    const pending = Math.max(0, grandTotal - paid);
+    let status = paid >= grandTotal ? "paid" : paid > 0 ? "partially_paid" : "unpaid";
     setEditingBill({ ...editingBill, paid_amount: newPaid, pending_amount: pending.toFixed(2), status });
   };
 
