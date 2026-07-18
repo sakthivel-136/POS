@@ -89,16 +89,5 @@ def update_bill(bill_id: int, bill_update: schemas.BillUpdate, supabase: Client 
     update_res = supabase.table('bills').update(update_data).eq('id', bill_id).execute()
     new_bill = update_res.data[0]
     
-    # Calculate difference in pending amount to update customer's credit limit
-    pending_diff = float(bill_update.pending_amount) - float(old_bill.get('pending_amount', 0))
-    
-    if pending_diff != 0:
-        customer_id = old_bill.get('customer_id')
-        if customer_id:
-            customer_res = supabase.table('customers').select('credit_limit').eq('id', customer_id).execute()
-            if customer_res.data:
-                current_limit = float(customer_res.data[0].get('credit_limit') or 0)
-                new_limit = current_limit + pending_diff
-                supabase.table('customers').update({'credit_limit': new_limit}).eq('id', customer_id).execute()
-                
+    # Note: credit_limit in customers table is deprecated. Balance is dynamically calculated from bills.
     return new_bill
