@@ -26,7 +26,8 @@ export default function CustomersPage() {
     phone3: "",
     phone4: "",
     phone5: "",
-    location: "" 
+    location: "",
+    pending_balance: ""
   });
   const [editingCustomerId, setEditingCustomerId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -87,7 +88,8 @@ export default function CustomersPage() {
           phone_number_3: formData.phone3 || null,
           phone_number_4: formData.phone4 || null,
           phone_number_5: formData.phone5 || null,
-          address: formData.location
+          address: formData.location,
+          credit_limit: parseFloat(formData.pending_balance) || 0
         })
       });
       
@@ -95,7 +97,7 @@ export default function CustomersPage() {
         fetchCustomers();
         setIsModalOpen(false);
         setEditingCustomerId(null);
-        setFormData({ name: "", phone: "", phone2: "", phone3: "", phone4: "", phone5: "", location: "" });
+        setFormData({ name: "", phone: "", phone2: "", phone3: "", phone4: "", phone5: "", location: "", pending_balance: "" });
       } else {
         alert("Failed to save customer. Please try again.");
       }
@@ -186,7 +188,7 @@ export default function CustomersPage() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Customers</h1>
-        <Button onClick={() => { setEditingCustomerId(null); setFormData({ name: "", phone: "", phone2: "", phone3: "", phone4: "", phone5: "", location: "" }); setIsModalOpen(true); }} className="bg-primary hover:bg-primary/90">
+        <Button onClick={() => { setEditingCustomerId(null); setFormData({ name: "", phone: "", phone2: "", phone3: "", phone4: "", phone5: "", location: "", pending_balance: "" }); setIsModalOpen(true); }} className="bg-primary hover:bg-primary/90">
           <Plus className="w-4 h-4 mr-2" /> Add Customer
         </Button>
       </div>
@@ -244,7 +246,8 @@ export default function CustomersPage() {
                         phone3: customer.phone_number_3 || "",
                         phone4: customer.phone_number_4 || "",
                         phone5: customer.phone_number_5 || "",
-                        location: customer.address || ""
+                        location: customer.address || "",
+                        pending_balance: (customer.current_balance || 0).toString()
                       });
                       setIsModalOpen(true);
                     }} variant="outline" size="sm" className="bg-white/5 border-white/10 h-8">
@@ -314,6 +317,15 @@ export default function CustomersPage() {
                   placeholder="e.g. Madurai" 
                   value={formData.location}
                   onChange={e => setFormData({...formData, location: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Pending Balance (₹)</label>
+                <Input 
+                  type="number"
+                  placeholder="e.g. 500" 
+                  value={formData.pending_balance}
+                  onChange={e => setFormData({...formData, pending_balance: e.target.value})}
                 />
               </div>
 

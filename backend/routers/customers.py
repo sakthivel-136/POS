@@ -18,22 +18,20 @@ def create_customer(customer: schemas.CustomerCreate, supabase: Client = Depends
 
 @router.get("/", response_model=List[schemas.CustomerResponse])
 def get_customers(skip: int = 0, limit: int = 100, supabase: Client = Depends(get_supabase)):
-    res = supabase.table('customers').select('*, bills(pending_amount)').range(skip, skip + limit - 1).execute()
+    res = supabase.table('customers').select('*').range(skip, skip + limit - 1).execute()
     customers = []
     for c in res.data:
-        bills = c.pop('bills', [])
-        c['current_balance'] = sum(float(b.get('pending_amount') or 0) for b in bills)
+        c['current_balance'] = float(c.get('credit_limit') or 0.0)
         customers.append(c)
     return customers
 
 @router.get("/{customer_id}", response_model=schemas.CustomerResponse)
 def get_customer(customer_id: int, supabase: Client = Depends(get_supabase)):
-    res = supabase.table('customers').select('*, bills(pending_amount)').eq('id', customer_id).execute()
+    res = supabase.table('customers').select('*').eq('id', customer_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Customer not found")
     c = res.data[0]
-    bills = c.pop('bills', [])
-    c['current_balance'] = sum(float(b.get('pending_amount') or 0) for b in bills)
+    c['current_balance'] = float(c.get('credit_limit') or 0.0)
     return c
 
 @router.put("/{customer_id}", response_model=schemas.CustomerResponse)
@@ -42,7 +40,7 @@ def update_customer(customer_id: int, customer: schemas.CustomerCreate, supabase
     if not res.data:
         raise HTTPException(status_code=404, detail="Customer not found")
     c = res.data[0]
-    c['current_balance'] = 0.0 # Just returning the updated model, we don't need to recalculate balance here unless we join
+    c['current_balance'] = float(c.get('credit_limit') or 0.0)
     return c
 
 @router.delete("/{customer_id}")

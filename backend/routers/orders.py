@@ -133,7 +133,12 @@ def process_order(order_id: int, update: OrderProcessUpdate, supabase: Client = 
                 new_stock = curr_stock - float(item['quantity'])
                 supabase.table('products').update({'current_stock': new_stock}).eq('id', item['product_id']).execute()
                 
-        # Note: credit_limit is deprecated. Pending balance is dynamically calculated from bills.
+        # Update customer credit limit (pending balance increases)
+        c_res = supabase.table('customers').select('credit_limit').eq('id', order['customer_id']).execute()
+        if c_res.data:
+            curr_limit = float(c_res.data[0].get('credit_limit') or 0)
+            new_limit = curr_limit + float(order['total_amount'])
+            supabase.table('customers').update({'credit_limit': new_limit}).eq('id', order['customer_id']).execute()
             
     # Update order status
     supabase.table('orders').update({
