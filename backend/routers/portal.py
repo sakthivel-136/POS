@@ -136,12 +136,7 @@ def get_portal_dashboard(supabase: Client = Depends(get_supabase), current_user:
     total_purchases = sum(float(b['total_amount']) for b in bills_res.data) if bills_res.data else 0
     
     # Calculate total pending
-    pending_res = supabase.table('bills').select('pending_amount').eq('customer_id', customer['id']).eq('status', 'unpaid').execute()
-    total_pending = sum(float(b['pending_amount']) for b in pending_res.data) if pending_res.data else 0
-    
-    # Include partially paid bills in pending calculation
-    partial_res = supabase.table('bills').select('pending_amount').eq('customer_id', customer['id']).eq('status', 'partially_paid').execute()
-    total_pending += sum(float(b['pending_amount']) for b in partial_res.data) if partial_res.data else 0
+    total_pending = float(customer.get('credit_limit') or 0.0)
     
     return {
         "customer_name": customer['customer_name'],

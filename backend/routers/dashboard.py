@@ -61,7 +61,8 @@ def get_dashboard_kpis(supabase: Client = Depends(get_supabase)):
     out_of_stock_count = sum(1 for p in products if float(p.get('current_stock', 0) or 0) <= 0)
     
     # Total Outstanding
-    total_outstanding = sum(float(b['pending_amount']) for b in all_bills if b.get('status') in ["unpaid", "partially_paid"])
+    customers_res = supabase.table('customers').select('credit_limit').execute()
+    total_outstanding = sum(float(c.get('credit_limit') or 0) for c in customers_res.data)
 
     # 7-day sales data for Area Chart
     sales_data = []
