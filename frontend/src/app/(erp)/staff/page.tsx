@@ -6,12 +6,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, UserCog, User, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Users, UserCog, User, ShieldAlert, ShieldCheck, MoreVertical, Edit, KeyRound, Trash2 } from "lucide-react";
 
 export default function StaffManagementPage() {
   const router = useRouter();
   const [users, setUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Edit Details State
+  const [editUser, setEditUser] = useState<any>(null);
+  const [editUsername, setEditUsername] = useState("");
+  const [editStatus, setEditStatus] = useState("active");
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // Reset Password State
+  const [resetUser, setResetUser] = useState<any>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
+
+  // Dropdown state
+  const [openDropdown, setOpenDropdown] = useState<number | null>(null);
 
   useEffect(() => {
     // Basic frontend check - if not SAKTHI, redirect away immediately
@@ -34,7 +50,6 @@ export default function StaffManagementPage() {
       if (res.ok) {
         setUsers(await res.json());
       } else {
-        // Forbidden or error
         router.push("/dashboard");
       }
     } catch (err) {
@@ -45,6 +60,7 @@ export default function StaffManagementPage() {
   };
 
   const updateRole = async (userId: number, newRole: string) => {
+    setOpenDropdown(null);
     if (!window.confirm(`Are you sure you want to change this user's role to ${newRole.toUpperCase()}?`)) return;
     
     const token = localStorage.getItem("token");
@@ -54,16 +70,74 @@ export default function StaffManagementPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      if (res.ok) {
-        fetchUsers(); // refresh the list
-      } else {
+      if (res.ok) fetchUsers();
+      else {
         const error = await res.json();
         alert(error.detail || "Failed to update role");
       }
-    } catch (err) {
-      console.error(err);
-      alert("An unexpected error occurred");
+    } catch (err) { alert("An unexpected error occurred"); }
+  };
+
+  const deleteUser = async (userId: number) => {
+    setOpenDropdown(null);
+    if (!window.confirm("WARNING: Are you absolutely sure you want to DELETE this user? This cannot be undone.")) return;
+    
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/users/${userId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) fetchUsers();
+      else alert("Failed to delete user");
+    } catch (err) { alert("An unexpected error occurred"); }
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editUser) return;
+    setIsEditing(true);
+    
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/users/${editUser.id}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ username: editUsername, status: editStatus })
+      });
+      
+      if (res.ok) {
+        setEditUser(null);
+        fetchUsers();
+      } else alert("Failed to update user details");
+    } catch (err) { alert("An unexpected error occurred"); }
+    finally { setIsEditing(false); }
+  };
+
+  const handleResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetUser || !newPassword) return;
+    if (newPassword.length < 6) {
+        alert("Password must be at least 6 characters");
+        return;
     }
+    setIsResetting(true);
+    
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/users/${resetUser.id}/reset-password`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ new_password: newPassword })
+      });
+      
+      if (res.ok) {
+        setResetUser(null);
+        setNewPassword("");
+        alert("Password reset successfully!");
+      } else alert("Failed to reset password");
+    } catch (err) { alert("An unexpected error occurred"); }
+    finally { setIsResetting(false); }
   };
 
   if (isLoading) return <div className="p-8 text-center">Loading Staff Management...</div>;
@@ -76,19 +150,19 @@ export default function StaffManagementPage() {
             <UserCog className="w-8 h-8 text-indigo-600" />
             Staff & Admin Management
           </h1>
-          <p className="text-sm text-gray-500 mt-1">Manage system access roles for your employees</p>
+          <p className="text-sm text-gray-500 mt-1">Full control over system access roles and credentials</p>
         </div>
       </div>
 
-      <Card className="rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <Card className="rounded-xl border border-gray-200 shadow-sm overflow-visible">
         <CardHeader className="bg-gray-50/50 border-b">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <Users className="w-5 h-5 text-gray-500" />
             Active Team Members
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          <Table>
+        <CardContent className="p-0 overflow-visible">
+          <Table className="overflow-visible">
             <TableHeader>
               <TableRow className="bg-gray-50/30">
                 <TableHead className="font-semibold">User ID</TableHead>
@@ -100,7 +174,7 @@ export default function StaffManagementPage() {
             </TableHeader>
             <TableBody>
               {users.map((user) => (
-                <TableRow key={user.id} className="hover:bg-gray-50/50 transition-colors">
+                <TableRow key={user.id} className="hover:bg-gray-50/50 transition-colors group">
                   <TableCell className="font-medium text-gray-500">#{user.id}</TableCell>
                   <TableCell className="font-semibold">{user.username}</TableCell>
                   <TableCell>
@@ -119,29 +193,55 @@ export default function StaffManagementPage() {
                       {user.status || 'active'}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right relative overflow-visible">
                     {user.username.toUpperCase() === 'SAKTHI' ? (
                       <span className="text-xs text-gray-400 font-medium italic">Master Admin (Fixed)</span>
                     ) : (
-                      <div className="flex justify-end gap-2">
-                        {user.role === 'staff' ? (
-                          <Button 
-                            onClick={() => updateRole(user.id, 'admin')}
-                            size="sm" 
-                            variant="outline"
-                            className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 border-indigo-200"
-                          >
-                            Promote to Admin
-                          </Button>
-                        ) : (
-                          <Button 
-                            onClick={() => updateRole(user.id, 'staff')}
-                            size="sm" 
-                            variant="outline"
-                            className="bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 border-amber-200"
-                          >
-                            <ShieldAlert className="w-4 h-4 mr-1" /> Demote to Staff
-                          </Button>
+                      <div className="flex justify-end relative z-10">
+                        <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => setOpenDropdown(openDropdown === user.id ? null : user.id)}
+                        >
+                            <MoreVertical className="h-4 w-4 text-gray-500" />
+                        </Button>
+                        
+                        {openDropdown === user.id && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)}></div>
+                            <div className="absolute right-0 top-10 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-20 py-1 animate-in fade-in zoom-in-95 duration-200">
+                                {user.role === 'staff' ? (
+                                    <button onClick={() => updateRole(user.id, 'admin')} className="w-full text-left px-4 py-2 text-sm text-indigo-600 hover:bg-gray-50 flex items-center">
+                                        <ShieldCheck className="w-4 h-4 mr-2" /> Promote to Admin
+                                    </button>
+                                ) : (
+                                    <button onClick={() => updateRole(user.id, 'staff')} className="w-full text-left px-4 py-2 text-sm text-amber-600 hover:bg-gray-50 flex items-center">
+                                        <ShieldAlert className="w-4 h-4 mr-2" /> Demote to Staff
+                                    </button>
+                                )}
+                                <div className="border-t border-gray-100 my-1"></div>
+                                <button onClick={() => {
+                                    setEditUser(user);
+                                    setEditUsername(user.username);
+                                    setEditStatus(user.status || "active");
+                                    setOpenDropdown(null);
+                                }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center">
+                                    <Edit className="w-4 h-4 mr-2" /> Edit Details
+                                </button>
+                                <button onClick={() => {
+                                    setResetUser(user);
+                                    setNewPassword("");
+                                    setOpenDropdown(null);
+                                }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center">
+                                    <KeyRound className="w-4 h-4 mr-2" /> Reset Password
+                                </button>
+                                <div className="border-t border-gray-100 my-1"></div>
+                                <button onClick={() => deleteUser(user.id)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center font-medium">
+                                    <Trash2 className="w-4 h-4 mr-2" /> Delete Staff
+                                </button>
+                            </div>
+                          </>
                         )}
                       </div>
                     )}
@@ -160,6 +260,85 @@ export default function StaffManagementPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Edit User Modal */}
+      {editUser && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md shadow-xl animate-in zoom-in-95 duration-200">
+            <CardHeader className="border-b bg-gray-50">
+              <CardTitle>Edit Staff Details</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <form onSubmit={handleEditSubmit} className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Username / Phone Number</label>
+                  <Input 
+                    value={editUsername}
+                    onChange={(e) => setEditUsername(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Account Status</label>
+                  <select 
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full h-10 px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="active">Active</option>
+                    <option value="pending">Pending</option>
+                    <option value="suspended">Suspended</option>
+                  </select>
+                </div>
+                <div className="flex gap-3 justify-end mt-6 pt-4 border-t">
+                  <Button type="button" variant="outline" onClick={() => setEditUser(null)}>Cancel</Button>
+                  <Button type="submit" disabled={isEditing}>
+                    {isEditing ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {resetUser && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md shadow-xl animate-in zoom-in-95 duration-200">
+            <CardHeader className="border-b bg-rose-50 text-rose-900">
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="w-5 h-5" /> 
+                Reset Password
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="mb-4 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border">
+                You are about to securely reset the password for <strong>{resetUser.username}</strong>.
+              </div>
+              <form onSubmit={handleResetSubmit} className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">New Password (min 6 chars)</label>
+                  <Input 
+                    type="text"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new strong password"
+                    minLength={6}
+                    required
+                  />
+                </div>
+                <div className="flex gap-3 justify-end mt-6 pt-4 border-t">
+                  <Button type="button" variant="outline" onClick={() => setResetUser(null)}>Cancel</Button>
+                  <Button type="submit" disabled={isResetting} className="bg-rose-600 hover:bg-rose-700 text-white">
+                    {isResetting ? "Resetting..." : "Confirm Password Reset"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

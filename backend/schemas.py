@@ -17,6 +17,13 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+class PasswordResetRequest(BaseModel):
+    new_password: str
+
+class UserUpdate(BaseModel):
+    username: str
+    status: str
+
 # Product Schemas
 class ProductBase(BaseModel):
     product_name: str
