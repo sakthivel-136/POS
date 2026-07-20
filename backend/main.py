@@ -7,7 +7,7 @@ from typing import List
 
 import schemas, auth
 from database import get_supabase
-from routers import products, customers, stock, billing, payments, portal, dashboard, reports, import_export, orders, expenses
+from routers import products, customers, stock, billing, payments, portal, dashboard, reports, import_export, orders, expenses, users
 
 app = FastAPI(title="Sakthi Spices ERP")
 
@@ -30,6 +30,7 @@ app.include_router(reports.router)
 app.include_router(import_export.router)
 app.include_router(orders.router)
 app.include_router(expenses.router)
+app.include_router(users.router)
 @app.post("/token", response_model=schemas.Token)
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), supabase: Client = Depends(get_supabase)):
     phone = form_data.username

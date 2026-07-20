@@ -11,7 +11,8 @@ import {
   LogOut,
   Menu,
   X,
-  BarChart
+  BarChart,
+  UserCog
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,7 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userRole, setUserRole] = useState<string>("admin"); // default optimistic
+  const [username, setUsername] = useState<string>("");
   const router = useRouter();
 
   useEffect(() => {
@@ -36,6 +38,7 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
         if (res.ok) {
           const data = await res.json();
           setUserRole(data.role);
+          setUsername(data.username);
           if (data.role === "customer") {
             router.push("/portal");
           }
@@ -64,9 +67,13 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 
-  const navItems = userRole === "admin" ? allNavItems : allNavItems.filter(i => 
+  const baseNavItems = userRole === "admin" ? allNavItems : allNavItems.filter(i => 
     ["Billing (POS)", "Orders", "Bills History"].includes(i.name)
   );
+
+  const navItems = username.toUpperCase() === "SAKTHI" 
+    ? [...baseNavItems, { name: "Staff Management", href: "/staff", icon: UserCog }]
+    : baseNavItems;
 
   return (
     <div className="min-h-screen bg-[#F3F4F6] flex">
@@ -119,8 +126,8 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
                 SA
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">Sakthi Admin</p>
-                <p className="text-xs text-gray-500">Administrator</p>
+                <p className="text-sm font-semibold text-gray-900">{username || "User"}</p>
+                <p className="text-xs text-gray-500 capitalize">{userRole}</p>
               </div>
             </div>
             
