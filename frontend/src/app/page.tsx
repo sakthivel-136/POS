@@ -45,6 +45,7 @@ export default function LoginPage() {
         
         if (meRes.ok) {
           const meData = await meRes.json();
+          localStorage.setItem("username", meData.username);
           if (meData.role === "admin" || meData.role === "staff") {
             router.push("/dashboard");
           } else if (meData.role === "customer") {

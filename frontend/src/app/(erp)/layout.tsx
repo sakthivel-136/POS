@@ -39,6 +39,7 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
           const data = await res.json();
           setUserRole(data.role);
           setUsername(data.username);
+          localStorage.setItem("username", data.username);
           if (data.role === "customer") {
             router.push("/portal");
           }
