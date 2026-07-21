@@ -138,6 +138,9 @@ class BillUpdate(BaseModel):
     paid_amount: float
     pending_amount: float
 
+class BillFullUpdate(BillBase):
+    items: List[BillItemCreate]
+
 class BillResponse(BillBase):
     id: int
     bill_date: datetime

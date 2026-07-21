@@ -10,6 +10,7 @@ import { Plus, Trash2, IndianRupee } from "lucide-react";
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingExpenseId, setEditingExpenseId] = useState<number | null>(null);
   const [formData, setFormData] = useState({ date: new Date().toISOString().split('T')[0], category: "Rent", amount: "", description: "" });
 
   const fetchExpenses = async () => {
@@ -29,21 +30,44 @@ export default function ExpensesPage() {
     fetchExpenses();
   }, []);
 
+  const openEditModal = (expense: any) => {
+    setEditingExpenseId(expense.id);
+    setFormData({
+      date: expense.date,
+      category: expense.category,
+      amount: expense.amount.toString(),
+      description: expense.description || ""
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleAddClick = () => {
+    setEditingExpenseId(null);
+    setFormData({ date: new Date().toISOString().split('T')[0], category: "Rent", amount: "", description: "" });
+    setIsModalOpen(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
+    const method = editingExpenseId ? "PUT" : "POST";
+    const url = editingExpenseId 
+        ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/expenses/${editingExpenseId}`
+        : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/expenses`;
+
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/expenses`, {
-        method: "POST",
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount) })
       });
       if (res.ok) {
         setIsModalOpen(false);
         setFormData({ date: new Date().toISOString().split('T')[0], category: "Rent", amount: "", description: "" });
+        setEditingExpenseId(null);
         fetchExpenses();
       } else {
-        alert("Failed to add expense");
+        alert(`Failed to ${editingExpenseId ? "update" : "add"} expense`);
       }
     } catch (err) {
       alert("Network Error");
@@ -70,7 +94,7 @@ export default function ExpensesPage() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Business Expenses</h1>
-        <Button onClick={() => setIsModalOpen(true)} className="bg-primary hover:bg-primary/90">
+        <Button onClick={handleAddClick} className="bg-primary hover:bg-primary/90">
           <Plus className="w-4 h-4 mr-2" /> Add Expense
         </Button>
       </div>
@@ -116,6 +140,9 @@ export default function ExpensesPage() {
                     <TableCell>{expense.description || "-"}</TableCell>
                     <TableCell className="font-semibold text-destructive">₹{expense.amount}</TableCell>
                     <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" onClick={() => openEditModal(expense)} className="text-gray-600 hover:text-gray-900 mr-2">
+                        Edit
+                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => deleteExpense(expense.id)}>
                         <Trash2 className="w-4 h-4 text-red-500" />
                       </Button>

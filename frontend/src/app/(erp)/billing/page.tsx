@@ -22,6 +22,10 @@ export default function BillingPOS() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [customerRates, setCustomerRates] = useState<any>({});
 
+  const [editBillId, setEditBillId] = useState<string | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [originalBill, setOriginalBill] = useState<any>(null);
+
   useEffect(() => {
     const fetchData = async () => {
       const token = localStorage.getItem("token");
@@ -31,8 +35,54 @@ export default function BillingPOS() {
           fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers`, { headers: { Authorization: `Bearer ${token}` } })
         ]);
-        if (prodRes.ok) setProducts(await prodRes.json());
-        if (custRes.ok) setCustomers(await custRes.json());
+        let loadedProducts = [];
+        let loadedCustomers = [];
+        if (prodRes.ok) {
+          loadedProducts = await prodRes.json();
+          setProducts(loadedProducts);
+        }
+        if (custRes.ok) {
+          loadedCustomers = await custRes.json();
+          setCustomers(loadedCustomers);
+        }
+
+        // Check for edit mode
+        if (typeof window !== "undefined") {
+          const params = new URLSearchParams(window.location.search);
+          const editId = params.get("edit_bill");
+          if (editId) {
+            setEditBillId(editId);
+            setIsEditMode(true);
+            const billRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/bills`, { headers: { Authorization: `Bearer ${token}` } });
+            if (billRes.ok) {
+              const bills = await billRes.json();
+              const targetBill = bills.find((b: any) => b.id.toString() === editId);
+              if (targetBill) {
+                setOriginalBill(targetBill);
+                const cust = loadedCustomers.find((c: any) => c.id === targetBill.customer_id);
+                if (cust) setSelectedCustomer(cust);
+                
+                // Map bill_items back to products
+                if (targetBill.bill_items) {
+                  const mappedItems = targetBill.bill_items.map((bi: any) => {
+                    const prod = loadedProducts.find((p: any) => p.id === bi.product_id);
+                    return {
+                      ...prod,
+                      qty: bi.quantity,
+                      rateToUse: bi.rate
+                    };
+                  }).filter((i: any) => i.id);
+                  setItems(mappedItems);
+                }
+                
+                setPaymentMode(targetBill.status);
+                if (targetBill.status === "partially_paid") {
+                  setReceivedAmount(targetBill.paid_amount);
+                }
+              }
+            }
+          }
+        }
       } catch (err) { console.error(err); }
     };
     fetchData();
@@ -55,7 +105,7 @@ export default function BillingPOS() {
   };
 
   const currentBillAmount = items.reduce((acc, item) => acc + (item.rateToUse * item.qty), 0);
-  const previousPending = selectedCustomer ? (selectedCustomer.current_balance || 0) : 0;
+  const previousPending = isEditMode ? 0 : (selectedCustomer ? (selectedCustomer.current_balance || 0) : 0);
   const grandTotal = currentBillAmount + previousPending;
 
   // Compute actual paid/pending based on mode
@@ -80,23 +130,32 @@ export default function BillingPOS() {
       items: items.map(i => ({ product_id: i.id, quantity: i.qty, rate: i.rateToUse, amount: i.qty * i.rateToUse }))
     };
 
+    const method = isEditMode ? "PUT" : "POST";
+    const url = isEditMode 
+      ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing/${editBillId}/full`
+      : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing/`;
+
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing/`, {
-        method: "POST",
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify(payload)
       });
       if (res.ok) {
         const data = await res.json();
         setSavedBillId(data.id || null);
-        alert(`Bill #${data.id || ""} saved successfully!`);
+        alert(`Bill #${data.id || ""} ${isEditMode ? "updated" : "saved"} successfully!`);
+        if (isEditMode) {
+          window.location.href = "/bills"; // Redirect back to bills history after edit
+          return data;
+        }
         setItems([]);
         setPaymentMode("unpaid");
         setReceivedAmount(0);
         setSelectedCustomer(null);
         return data;
       } else {
-        alert("Failed to save bill");
+        alert(`Failed to ${isEditMode ? "update" : "save"} bill`);
         return null;
       }
     } catch (err) {
@@ -349,7 +408,7 @@ export default function BillingPOS() {
 
               <div className="pt-2 flex gap-3">
                 <Button onClick={handleSaveBill} disabled={isSaving} className="flex-1 py-6 bg-emerald-600 hover:bg-emerald-700 text-white">
-                  <CheckCircle2 className="w-5 h-5 mr-2" /> {isSaving ? "Saving..." : "Save Bill"}
+                  <CheckCircle2 className="w-5 h-5 mr-2" /> {isSaving ? "Saving..." : (isEditMode ? `Update Bill #${editBillId}` : "Save Bill")}
                 </Button>
                 <Button variant="outline" className="flex-1 py-6 bg-white border-gray-300 text-black hover:bg-gray-100" onClick={handleDownloadPDF}>
                   <DownloadIcon className="w-5 h-5 mr-2" /> Download PDF

@@ -98,3 +98,79 @@ def update_bill(bill_id: int, bill_update: schemas.BillUpdate, supabase: Client 
                 supabase.table('customers').update({'credit_limit': new_limit}).eq('id', customer_id).execute()
                 
     return new_bill
+
+@router.put("/{bill_id}/full", response_model=schemas.BillResponse)
+def update_full_bill(
+    bill_id: int, 
+    bill_update: schemas.BillFullUpdate, 
+    supabase: Client = Depends(get_supabase),
+    current_user: schemas.UserResponse = Depends(auth.get_current_user)
+):
+    # 1. Fetch old bill and old items
+    old_bill_res = supabase.table('bills').select('*').eq('id', bill_id).execute()
+    if not old_bill_res.data:
+        raise HTTPException(status_code=404, detail="Bill not found")
+    old_bill = old_bill_res.data[0]
+    
+    old_items_res = supabase.table('bill_items').select('*').eq('bill_id', bill_id).execute()
+    old_items = old_items_res.data
+    
+    # 2. Revert stock for old items
+    for item in old_items:
+        p_res = supabase.table('products').select('current_stock').eq('id', item['product_id']).execute()
+        if p_res.data:
+            new_stock = float(p_res.data[0]['current_stock']) + float(item['quantity'])
+            supabase.table('products').update({'current_stock': new_stock}).eq('id', item['product_id']).execute()
+            
+            # Record reversion
+            supabase.table('stock_transactions').insert({
+                "product_id": item['product_id'],
+                "transaction_type": "adjustment",
+                "quantity": float(item['quantity']),
+                "reason": f"Reverted for editing Bill #{bill_id}",
+                "user_id": current_user.id
+            }).execute()
+            
+    # 3. Delete old items
+    supabase.table('bill_items').delete().eq('bill_id', bill_id).execute()
+    
+    # 4. Update the bill headers
+    update_data = {
+        "status": bill_update.status,
+        "total_amount": bill_update.total_amount,
+        "paid_amount": bill_update.paid_amount,
+        "pending_amount": bill_update.pending_amount
+    }
+    updated_bill_res = supabase.table('bills').update(update_data).eq('id', bill_id).execute()
+    db_bill = updated_bill_res.data[0]
+    
+    # 5. Insert new items and deduct stock
+    for item in bill_update.items:
+        item_data = item.model_dump()
+        item_data['bill_id'] = bill_id
+        supabase.table('bill_items').insert(item_data).execute()
+        
+        p_res = supabase.table('products').select('current_stock').eq('id', item.product_id).execute()
+        if p_res.data:
+            new_stock = float(p_res.data[0]['current_stock']) - float(item.quantity)
+            supabase.table('products').update({'current_stock': new_stock}).eq('id', item.product_id).execute()
+            
+            supabase.table('stock_transactions').insert({
+                "product_id": item.product_id,
+                "transaction_type": "sale",
+                "quantity": float(item.quantity),
+                "reason": f"Updated Bill #{bill_id}",
+                "user_id": current_user.id
+            }).execute()
+            
+    # 6. Update customer credit limit (difference in pending)
+    pending_diff = float(bill_update.pending_amount) - float(old_bill.get('pending_amount', 0))
+    if pending_diff != 0:
+        c_id = old_bill.get('customer_id')
+        if c_id:
+            c_res = supabase.table('customers').select('credit_limit').eq('id', c_id).execute()
+            if c_res.data:
+                curr_limit = float(c_res.data[0].get('credit_limit') or 0)
+                supabase.table('customers').update({'credit_limit': curr_limit + pending_diff}).eq('id', c_id).execute()
+                
+    return db_bill

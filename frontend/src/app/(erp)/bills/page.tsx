@@ -263,7 +263,10 @@ export default function BillsPage() {
                     </TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button onClick={() => openEditModal(bill)} variant="outline" size="sm" className="h-8 border-gray-200 hover:bg-gray-50 text-gray-700">
-                        <FileEdit className="w-3.5 h-3.5 mr-1.5" /> Edit
+                        <FileEdit className="w-3.5 h-3.5 mr-1.5" /> Payment
+                      </Button>
+                      <Button onClick={() => router.push(`/billing?edit_bill=${bill.id}`)} variant="outline" size="sm" className="h-8 border-blue-200 hover:bg-blue-50 text-blue-600">
+                        <FileEdit className="w-3.5 h-3.5 mr-1.5" /> Items
                       </Button>
                       <Button onClick={() => generatePDF(bill, customer)} variant="outline" size="sm" className="h-8 border-red-200 hover:bg-red-50 text-red-600">
                         <FileEdit className="w-3.5 h-3.5 mr-1.5" /> PDF

@@ -38,6 +38,21 @@ def get_expenses(
     res = supabase.table('expenses').select('*').order('date', desc=True).execute()
     return res.data
 
+@router.put("/{expense_id}", response_model=ExpenseResponse)
+def update_expense(
+    expense_id: int,
+    expense: ExpenseCreate,
+    supabase: Client = Depends(database.get_supabase),
+    current_admin: schemas.UserResponse = Depends(auth.get_current_active_admin)
+):
+    res = supabase.table('expenses').select('*').eq('id', expense_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Expense not found")
+        
+    update_data = expense.model_dump()
+    update_res = supabase.table('expenses').update(update_data).eq('id', expense_id).execute()
+    return update_res.data[0]
+
 @router.delete("/{expense_id}")
 def delete_expense(
     expense_id: int,
