@@ -116,9 +116,10 @@ export default function BillsPage() {
     setIsEditItemsModalOpen(true);
   };
 
-  const handleAddItem = () => {
-    if (!selectedProductId) return;
-    const prod = products.find(p => p.id.toString() === selectedProductId);
+  const handleAddItem = (productIdOverride?: string) => {
+    const id = productIdOverride || selectedProductId;
+    if (!id) return;
+    const prod = products.find(p => p.id.toString() === id);
     if (!prod) return;
     setEditingItems(prev => {
       const existing = prev.find(i => i.product_id === prod.id);
@@ -485,7 +486,11 @@ export default function BillsPage() {
                   <select 
                     className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:border-primary text-sm text-black"
                     value={selectedProductId}
-                    onChange={(e) => setSelectedProductId(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedProductId(val);
+                      if (val) handleAddItem(val);
+                    }}
                   >
                     <option value="">-- Select Product --</option>
                     {products.map(p => (
@@ -493,7 +498,6 @@ export default function BillsPage() {
                     ))}
                   </select>
                 </div>
-                <Button type="button" onClick={handleAddItem} className="bg-primary hover:bg-primary/90 text-white shrink-0">Add Item</Button>
               </div>
 
               {/* Items List */}
