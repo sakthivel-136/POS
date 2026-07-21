@@ -53,7 +53,7 @@ export default function BillingPOS() {
           if (editId) {
             setEditBillId(editId);
             setIsEditMode(true);
-            const billRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/bills`, { headers: { Authorization: `Bearer ${token}` } });
+            const billRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing`, { headers: { Authorization: `Bearer ${token}` } });
             if (billRes.ok) {
               const bills = await billRes.json();
               const targetBill = bills.find((b: any) => b.id.toString() === editId);
