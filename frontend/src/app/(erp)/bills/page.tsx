@@ -154,12 +154,22 @@ export default function BillsPage() {
 
     // Optimistic Update
     setIsEditItemsModalOpen(false);
+    
+    // Create new bill items array for optimistic UI
+    const newBillItems = editingItems.map(i => ({
+      product_id: i.product_id,
+      quantity: parseFloat(i.qty),
+      rate: parseFloat(i.rateToUse),
+      amount: parseFloat(i.qty) * parseFloat(i.rateToUse)
+    }));
+
     setBills(prev => prev.map(b => b.id === itemsBill.id ? { 
       ...b, 
       total_amount: newTotalAmount, 
       paid_amount: finalPaid, 
       pending_amount: newPending, 
-      status: newStatus 
+      status: newStatus,
+      bill_items: newBillItems
     } : b));
     const currentItemsBill = itemsBill;
     
@@ -174,15 +184,17 @@ export default function BillsPage() {
           total_amount: newTotalAmount,
           paid_amount: finalPaid,
           pending_amount: newPending,
-          items: editingItems.map(i => ({ 
-            product_id: i.product_id, 
-            quantity: parseFloat(i.qty), 
-            rate: parseFloat(i.rateToUse), 
-            amount: parseFloat(i.qty) * parseFloat(i.rateToUse) 
-          }))
+          items: newBillItems
         })
       });
-    } catch (err) {}
+      if (!res.ok) {
+        alert("Warning: Failed to save changes to the server. Page will reload.");
+        window.location.reload();
+      }
+    } catch (err) {
+      alert("Network Error: Could not connect to the server.");
+      window.location.reload();
+    }
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
