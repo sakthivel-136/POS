@@ -104,8 +104,8 @@ export default function BillsPage() {
         return {
           product_id: bi.product_id,
           product_name: prod ? prod.product_name : `Product #${bi.product_id}`,
-          qty: bi.quantity,
-          rateToUse: bi.rate
+          qty: parseFloat(bi.quantity),
+          rateToUse: parseFloat(bi.rate)
         };
       });
       setEditingItems(mapped);
@@ -122,9 +122,9 @@ export default function BillsPage() {
     if (!prod) return;
     const existing = editingItems.find(i => i.product_id === prod.id);
     if (existing) {
-      setEditingItems(editingItems.map(i => i.product_id === prod.id ? { ...i, qty: i.qty + 1 } : i));
+      setEditingItems(editingItems.map(i => i.product_id === prod.id ? { ...i, qty: parseFloat(i.qty) + 1 } : i));
     } else {
-      setEditingItems([...editingItems, { product_id: prod.id, product_name: prod.product_name, qty: 1, rateToUse: prod.default_selling_price }]);
+      setEditingItems([...editingItems, { product_id: prod.id, product_name: prod.product_name, qty: 1, rateToUse: parseFloat(prod.default_selling_price || "0") }]);
     }
     setSelectedProductId("");
   };
@@ -134,7 +134,7 @@ export default function BillsPage() {
     setIsSavingItems(true);
     const token = localStorage.getItem("token");
 
-    const newTotalAmount = editingItems.reduce((acc, item) => acc + (item.rateToUse * item.qty), 0);
+    const newTotalAmount = editingItems.reduce((acc, item) => acc + (parseFloat(item.rateToUse) * parseFloat(item.qty)), 0);
     const paidAmount = parseFloat(itemsBill.paid_amount || 0);
     
     // Cap paid_amount to new total if they are removing items
@@ -147,11 +147,17 @@ export default function BillsPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({
+          customer_id: itemsBill.customer_id,
           status: newStatus,
           total_amount: newTotalAmount,
           paid_amount: finalPaid,
           pending_amount: newPending,
-          items: editingItems.map(i => ({ product_id: i.product_id, quantity: i.qty, rate: i.rateToUse, amount: i.qty * i.rateToUse }))
+          items: editingItems.map(i => ({ 
+            product_id: i.product_id, 
+            quantity: parseFloat(i.qty), 
+            rate: parseFloat(i.rateToUse), 
+            amount: parseFloat(i.qty) * parseFloat(i.rateToUse) 
+          }))
         })
       });
       if (res.ok) {
