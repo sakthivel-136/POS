@@ -197,52 +197,34 @@ export default function StaffManagementPage() {
                     {user.username.toUpperCase() === 'SAKTHI' ? (
                       <span className="text-xs text-gray-400 font-medium italic">Master Admin (Fixed)</span>
                     ) : (
-                      <div className="flex justify-end relative z-10">
-                        <Button 
-                            variant="ghost" 
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => setOpenDropdown(openDropdown === user.id ? null : user.id)}
-                        >
-                            <MoreVertical className="h-4 w-4 text-gray-500" />
-                        </Button>
-                        
-                        {openDropdown === user.id && (
-                          <>
-                            <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)}></div>
-                            <div className="absolute right-0 top-10 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-20 py-1 animate-in fade-in zoom-in-95 duration-200">
-                                {user.role === 'staff' ? (
-                                    <button onClick={() => updateRole(user.id, 'admin')} className="w-full text-left px-4 py-2 text-sm text-indigo-600 hover:bg-gray-50 flex items-center">
-                                        <ShieldCheck className="w-4 h-4 mr-2" /> Promote to Admin
-                                    </button>
-                                ) : (
-                                    <button onClick={() => updateRole(user.id, 'staff')} className="w-full text-left px-4 py-2 text-sm text-amber-600 hover:bg-gray-50 flex items-center">
-                                        <ShieldAlert className="w-4 h-4 mr-2" /> Demote to Staff
-                                    </button>
-                                )}
-                                <div className="border-t border-gray-100 my-1"></div>
-                                <button onClick={() => {
-                                    setEditUser(user);
-                                    setEditUsername(user.username);
-                                    setEditStatus(user.status || "active");
-                                    setOpenDropdown(null);
-                                }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center">
-                                    <Edit className="w-4 h-4 mr-2" /> Edit Details
-                                </button>
-                                <button onClick={() => {
-                                    setResetUser(user);
-                                    setNewPassword("");
-                                    setOpenDropdown(null);
-                                }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center">
-                                    <KeyRound className="w-4 h-4 mr-2" /> Reset Password
-                                </button>
-                                <div className="border-t border-gray-100 my-1"></div>
-                                <button onClick={() => deleteUser(user.id)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center font-medium">
-                                    <Trash2 className="w-4 h-4 mr-2" /> Delete Staff
-                                </button>
-                            </div>
-                          </>
-                        )}
+                      <div className="flex justify-end gap-2 relative z-10">
+                          {user.role === 'staff' ? (
+                              <Button onClick={() => updateRole(user.id, 'admin')} size="sm" variant="outline" className="h-8 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border-indigo-200 px-3">
+                                  Promote
+                              </Button>
+                          ) : (
+                              <Button onClick={() => updateRole(user.id, 'staff')} size="sm" variant="outline" className="h-8 bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200 px-3">
+                                  Demote
+                              </Button>
+                          )}
+                          <Button 
+                            onClick={() => { setEditUser(user); setEditUsername(user.username); setEditStatus(user.status || "active"); }} 
+                            size="sm" variant="outline" className="h-8 text-gray-700 hover:bg-gray-100 px-3"
+                          >
+                              Edit
+                          </Button>
+                          <Button 
+                            onClick={() => { setResetUser(user); setNewPassword(""); }} 
+                            size="sm" variant="outline" className="h-8 text-gray-700 hover:bg-gray-100 px-3"
+                          >
+                              Reset Password
+                          </Button>
+                          <Button 
+                            onClick={() => deleteUser(user.id)} 
+                            size="sm" variant="outline" className="h-8 text-red-600 hover:bg-red-50 border-red-200 px-3"
+                          >
+                              Delete
+                          </Button>
                       </div>
                     )}
                   </TableCell>
