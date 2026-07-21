@@ -145,6 +145,11 @@ export default function ExpensesPage() {
                   <option>Electricity</option>
                   <option>Materials</option>
                   <option>Logistics</option>
+                  <option>Food</option>
+                  <option>Petrol</option>
+                  <option>Repair</option>
+                  <option>Stock Purchase</option>
+                  <option>Cover</option>
                   <option>Miscellaneous</option>
                 </select>
               </div>
