@@ -40,6 +40,13 @@ export default function BillsPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<any>(null);
 
+  // Edit Items State
+  const [isEditItemsModalOpen, setIsEditItemsModalOpen] = useState(false);
+  const [editingItems, setEditingItems] = useState<any[]>([]);
+  const [itemsBill, setItemsBill] = useState<any>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [isSavingItems, setIsSavingItems] = useState(false);
+
   const router = useRouter();
 
   const fetchData = async () => {
@@ -87,6 +94,78 @@ export default function BillsPage() {
       status: bill.status
     });
     setIsEditModalOpen(true);
+  };
+
+  const openEditItemsModal = (bill: any) => {
+    setItemsBill(bill);
+    if (bill.bill_items) {
+      const mapped = bill.bill_items.map((bi: any) => {
+        const prod = products.find(p => p.id === bi.product_id);
+        return {
+          product_id: bi.product_id,
+          product_name: prod ? prod.product_name : `Product #${bi.product_id}`,
+          qty: bi.quantity,
+          rateToUse: bi.rate
+        };
+      });
+      setEditingItems(mapped);
+    } else {
+      setEditingItems([]);
+    }
+    setSelectedProductId("");
+    setIsEditItemsModalOpen(true);
+  };
+
+  const handleAddItem = () => {
+    if (!selectedProductId) return;
+    const prod = products.find(p => p.id.toString() === selectedProductId);
+    if (!prod) return;
+    const existing = editingItems.find(i => i.product_id === prod.id);
+    if (existing) {
+      setEditingItems(editingItems.map(i => i.product_id === prod.id ? { ...i, qty: i.qty + 1 } : i));
+    } else {
+      setEditingItems([...editingItems, { product_id: prod.id, product_name: prod.product_name, qty: 1, rateToUse: prod.default_selling_price }]);
+    }
+    setSelectedProductId("");
+  };
+
+  const handleEditItemsSubmit = async () => {
+    if (editingItems.length === 0) return alert("Bill must have at least one item.");
+    setIsSavingItems(true);
+    const token = localStorage.getItem("token");
+
+    const newTotalAmount = editingItems.reduce((acc, item) => acc + (item.rateToUse * item.qty), 0);
+    const paidAmount = parseFloat(itemsBill.paid_amount || 0);
+    
+    // Cap paid_amount to new total if they are removing items
+    const finalPaid = paidAmount > newTotalAmount ? newTotalAmount : paidAmount;
+    const newPending = newTotalAmount - finalPaid;
+    const newStatus = finalPaid >= newTotalAmount ? "paid" : (finalPaid > 0 ? "partially_paid" : "unpaid");
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing/${itemsBill.id}/full`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({
+          status: newStatus,
+          total_amount: newTotalAmount,
+          paid_amount: finalPaid,
+          pending_amount: newPending,
+          items: editingItems.map(i => ({ product_id: i.product_id, quantity: i.qty, rate: i.rateToUse, amount: i.qty * i.rateToUse }))
+        })
+      });
+      if (res.ok) {
+        setIsEditItemsModalOpen(false);
+        fetchData();
+        alert("Bill items updated successfully!");
+      } else {
+        alert("Failed to update bill items.");
+      }
+    } catch (err) {
+      alert("Network Error");
+    } finally {
+      setIsSavingItems(false);
+    }
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -265,7 +344,7 @@ export default function BillsPage() {
                       <Button onClick={() => openEditModal(bill)} variant="outline" size="sm" className="h-8 border-gray-200 hover:bg-gray-50 text-gray-700">
                         <FileEdit className="w-3.5 h-3.5 mr-1.5" /> Payment
                       </Button>
-                      <Button onClick={() => router.push(`/billing?edit_bill=${bill.id}`)} variant="outline" size="sm" className="h-8 border-blue-200 hover:bg-blue-50 text-blue-600">
+                      <Button onClick={() => openEditItemsModal(bill)} variant="outline" size="sm" className="h-8 border-blue-200 hover:bg-blue-50 text-blue-600">
                         <FileEdit className="w-3.5 h-3.5 mr-1.5" /> Items
                       </Button>
                       <Button onClick={() => generatePDF(bill, customer)} variant="outline" size="sm" className="h-8 border-red-200 hover:bg-red-50 text-red-600">
@@ -361,6 +440,137 @@ export default function BillsPage() {
           </div>
         </div>
       )}
+      {/* Edit Bill Items Modal */}
+      {isEditItemsModalOpen && itemsBill && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            <div className="px-6 py-5 border-b flex justify-between items-center bg-gray-50 shrink-0">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Edit Items — Bill #{itemsBill.id}</h2>
+                <p className="text-sm text-gray-500 mt-0.5">Add, remove, or change product quantities</p>
+              </div>
+              <button onClick={() => setIsEditItemsModalOpen(false)} className="text-gray-400 hover:text-gray-700"><X className="w-5 h-5" /></button>
+            </div>
+            
+            <div className="p-6 flex-1 overflow-y-auto space-y-6 bg-gray-50/50">
+              
+              {/* Add Product Section */}
+              <div className="flex gap-3 items-end bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                <div className="flex-1 space-y-1">
+                  <label className="text-sm font-semibold text-gray-700">Add Product to Bill</label>
+                  <select 
+                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:border-primary text-sm text-black"
+                    value={selectedProductId}
+                    onChange={(e) => setSelectedProductId(e.target.value)}
+                  >
+                    <option value="">-- Select Product --</option>
+                    {products.map(p => (
+                      <option key={p.id} value={p.id.toString()}>{p.product_name} - ₹{p.default_selling_price}</option>
+                    ))}
+                  </select>
+                </div>
+                <Button type="button" onClick={handleAddItem} className="bg-primary hover:bg-primary/90 text-white shrink-0">Add Item</Button>
+              </div>
+
+              {/* Items List */}
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-gray-50">
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead className="w-24 text-center">Rate</TableHead>
+                      <TableHead className="w-32 text-center">Qty</TableHead>
+                      <TableHead className="w-24 text-right">Total</TableHead>
+                      <TableHead className="w-16"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {editingItems.map((item, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium text-gray-900">{item.product_name}</TableCell>
+                        <TableCell className="text-center">
+                          <Input 
+                            type="number" step="0.01" 
+                            className="h-8 text-center text-black px-1"
+                            value={item.rateToUse}
+                            onChange={(e) => {
+                              const newItems = [...editingItems];
+                              newItems[index].rateToUse = parseFloat(e.target.value) || 0;
+                              setEditingItems(newItems);
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1 bg-gray-50 p-1 rounded-lg border border-gray-100">
+                            <button onClick={() => {
+                              const newItems = [...editingItems];
+                              newItems[index].qty = Math.max(1, newItems[index].qty - 1);
+                              setEditingItems(newItems);
+                            }} className="w-6 h-6 rounded bg-white border flex items-center justify-center text-gray-600 hover:bg-gray-100 text-lg leading-none shrink-0">-</button>
+                            <Input 
+                              type="number" 
+                              className="h-6 w-12 text-center border-0 bg-transparent p-0 focus-visible:ring-0 text-black font-semibold"
+                              value={item.qty}
+                              onChange={(e) => {
+                                const newItems = [...editingItems];
+                                newItems[index].qty = Math.max(1, parseFloat(e.target.value) || 1);
+                                setEditingItems(newItems);
+                              }}
+                            />
+                            <button onClick={() => {
+                              const newItems = [...editingItems];
+                              newItems[index].qty += 1;
+                              setEditingItems(newItems);
+                            }} className="w-6 h-6 rounded bg-white border flex items-center justify-center text-gray-600 hover:bg-gray-100 text-sm leading-none shrink-0">+</button>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-bold text-gray-900">₹{(item.rateToUse * item.qty).toFixed(0)}</TableCell>
+                        <TableCell className="text-right">
+                          <button onClick={() => {
+                            const newItems = [...editingItems];
+                            newItems.splice(index, 1);
+                            setEditingItems(newItems);
+                          }} className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {editingItems.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-6 text-gray-500">No items in this bill.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Totals Summary */}
+              <div className="flex justify-end">
+                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm min-w-[250px] space-y-2">
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>New Total:</span>
+                    <span className="font-bold text-gray-900">₹{editingItems.reduce((acc, item) => acc + (item.rateToUse * item.qty), 0).toFixed(0)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>Previously Paid:</span>
+                    <span className="font-bold text-emerald-600">₹{itemsBill.paid_amount || 0}</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+            
+            <div className="p-4 border-t bg-white flex gap-3 shrink-0">
+              <Button type="button" variant="outline" onClick={() => setIsEditItemsModalOpen(false)} className="flex-1">Cancel</Button>
+              <Button type="button" onClick={handleEditItemsSubmit} disabled={isSavingItems} className="flex-1 bg-[#1a1752] hover:bg-[#2a267c] text-white">
+                {isSavingItems ? "Saving..." : "Update Bill Items"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
