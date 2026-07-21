@@ -50,12 +50,7 @@ def create_bill(bill: schemas.BillCreate, supabase: Client = Depends(get_supabas
         supabase.table('stock_transactions').insert(stock_txn).execute()
 
     # 3. Update customer's pending balance
-    if float(bill.pending_amount) > 0:
-        customer_res = supabase.table('customers').select('credit_limit').eq('id', bill.customer_id).execute()
-        if customer_res.data:
-            current_limit = float(customer_res.data[0].get('credit_limit') or 0)
-            new_limit = current_limit + float(bill.pending_amount)
-            supabase.table('customers').update({'credit_limit': new_limit}).eq('id', bill.customer_id).execute()
+    supabase.table('customers').update({'credit_limit': float(bill.pending_amount)}).eq('id', bill.customer_id).execute()
 
     return db_bill
 
