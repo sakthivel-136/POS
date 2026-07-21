@@ -55,37 +55,43 @@ export default function ExpensesPage() {
         ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/expenses/${editingExpenseId}`
         : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/expenses`;
 
+    // Optimistic UI Update
+    setIsModalOpen(false);
+    if (editingExpenseId) {
+      setExpenses(prev => prev.map(ex => ex.id === editingExpenseId ? { ...ex, ...formData, amount: parseFloat(formData.amount) } : ex));
+    } else {
+      const fakeId = Math.random() * -10000;
+      setExpenses(prev => [{ id: fakeId, ...formData, amount: parseFloat(formData.amount) }, ...prev]);
+    }
+    setFormData({ date: new Date().toISOString().split('T')[0], category: "Rent", amount: "", description: "" });
+    const currentEditId = editingExpenseId;
+    setEditingExpenseId(null);
+
     try {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount) })
       });
-      if (res.ok) {
-        setIsModalOpen(false);
-        setFormData({ date: new Date().toISOString().split('T')[0], category: "Rent", amount: "", description: "" });
-        setEditingExpenseId(null);
+      if (res.ok && !currentEditId) {
         fetchExpenses();
-      } else {
-        alert(`Failed to ${editingExpenseId ? "update" : "add"} expense`);
       }
-    } catch (err) {
-      alert("Network Error");
-    }
+    } catch (err) {}
   };
 
   const deleteExpense = async (id: number) => {
     if (!confirm("Are you sure you want to delete this expense?")) return;
+    
+    // Optimistic delete
+    setExpenses(prev => prev.filter(e => e.id !== id));
+    
     const token = localStorage.getItem("token");
     try {
       await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/expenses/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchExpenses();
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) {}
   };
 
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);

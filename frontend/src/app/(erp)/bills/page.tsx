@@ -133,19 +133,38 @@ export default function BillsPage() {
 
   const handleEditItemsSubmit = async () => {
     if (editingItems.length === 0) return alert("Bill must have at least one item.");
-    setIsSavingItems(true);
-    const token = localStorage.getItem("token");
-
+    
+    // Calculate new values
     const newTotalAmount = editingItems.reduce((acc, item) => acc + (parseFloat(item.rateToUse) * parseFloat(item.qty)), 0);
     const paidAmount = parseFloat(itemsBill.paid_amount || 0);
     
-    // Cap paid_amount to new total if they are removing items
-    const finalPaid = paidAmount > newTotalAmount ? newTotalAmount : paidAmount;
-    const newPending = newTotalAmount - finalPaid;
-    const newStatus = finalPaid >= newTotalAmount ? "paid" : (finalPaid > 0 ? "partially_paid" : "unpaid");
+    let newStatus = itemsBill.status;
+    let finalPaid = paidAmount;
+    let newPending = newTotalAmount - paidAmount;
+    if (newPending <= 0) {
+      newStatus = "paid";
+      finalPaid = newTotalAmount;
+      newPending = 0;
+    } else if (paidAmount > 0) {
+      newStatus = "partially_paid";
+    } else {
+      newStatus = "unpaid";
+    }
 
+    // Optimistic Update
+    setIsEditItemsModalOpen(false);
+    setBills(prev => prev.map(b => b.id === itemsBill.id ? { 
+      ...b, 
+      total_amount: newTotalAmount, 
+      paid_amount: finalPaid, 
+      pending_amount: newPending, 
+      status: newStatus 
+    } : b));
+    const currentItemsBill = itemsBill;
+    
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing/${itemsBill.id}/full`, {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing/${currentItemsBill.id}/full`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({
@@ -162,25 +181,24 @@ export default function BillsPage() {
           }))
         })
       });
-      if (res.ok) {
-        setIsEditItemsModalOpen(false);
-        fetchData();
-        alert("Bill items updated successfully!");
-      } else {
-        alert("Failed to update bill items.");
-      }
-    } catch (err) {
-      alert("Network Error");
-    } finally {
-      setIsSavingItems(false);
-    }
+    } catch (err) {}
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Optimistic UI
+    setIsEditModalOpen(false);
+    setBills(prev => prev.map(b => b.id === editingBill.id ? {
+      ...b,
+      status: editingBill.status,
+      paid_amount: parseFloat(editingBill.paid_amount),
+      pending_amount: parseFloat(editingBill.pending_amount)
+    } : b));
+    
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing/${editingBill.id}`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing/${editingBill.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({
@@ -189,9 +207,7 @@ export default function BillsPage() {
           pending_amount: parseFloat(editingBill.pending_amount)
         })
       });
-      if (res.ok) { fetchData(); setIsEditModalOpen(false); }
-      else alert("Failed to update bill.");
-    } catch (err) { console.error(err); }
+    } catch (err) {}
   };
 
   const handlePaidChange = (newPaid: string) => {

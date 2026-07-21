@@ -118,7 +118,6 @@ export default function BillingPOS() {
     if (paymentMode === "partially_paid" && (!receivedAmount || receivedAmount <= 0))
       return alert("Enter the amount paid for partial payment");
 
-    setIsSaving(true);
     const token = localStorage.getItem("token");
 
     const payload = {
@@ -134,6 +133,14 @@ export default function BillingPOS() {
     const url = isEditMode 
       ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing/${editBillId}/full`
       : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing/`;
+      
+    // Optimistic reset
+    if (!isEditMode) {
+      setItems([]);
+      setPaymentMode("unpaid");
+      setReceivedAmount(0);
+      setSelectedCustomer(null);
+    }
 
     try {
       const res = await fetch(url, {
@@ -144,25 +151,16 @@ export default function BillingPOS() {
       if (res.ok) {
         const data = await res.json();
         setSavedBillId(data.id || null);
-        alert(`Bill #${data.id || ""} ${isEditMode ? "updated" : "saved"} successfully!`);
         if (isEditMode) {
           window.location.href = "/bills"; // Redirect back to bills history after edit
           return data;
         }
-        setItems([]);
-        setPaymentMode("unpaid");
-        setReceivedAmount(0);
-        setSelectedCustomer(null);
         return data;
       } else {
-        alert(`Failed to ${isEditMode ? "update" : "save"} bill`);
         return null;
       }
     } catch (err) {
-      alert("Network error");
       return null;
-    } finally {
-      setIsSaving(false);
     }
   };
 

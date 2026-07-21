@@ -65,15 +65,40 @@ export default function CustomersPage() {
 
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaving(true);
-    
     const token = localStorage.getItem("token");
+    
+    // Optimistic UI Update
+    setIsModalOpen(false);
+    const method = editingCustomerId ? "PUT" : "POST";
+    const url = editingCustomerId 
+      ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers/${editingCustomerId}`
+      : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers/`;
+      
+    if (editingCustomerId) {
+      setCustomers(prev => prev.map(c => c.id === editingCustomerId ? {
+        ...c, 
+        customer_name: formData.name, 
+        phone_number: formData.phone,
+        address: formData.location,
+        credit_limit: parseFloat(formData.pending_balance) || 0
+      } : c));
+    } else {
+      // Fake ID for optimistic insert
+      const fakeId = Math.random() * -10000;
+      setCustomers(prev => [{
+        id: fakeId,
+        customer_name: formData.name, 
+        phone_number: formData.phone,
+        address: formData.location,
+        credit_limit: parseFloat(formData.pending_balance) || 0,
+        outstanding_balance: 0
+      }, ...prev]);
+    }
+    
+    setEditingCustomerId(null);
+    setFormData({ name: "", phone: "", phone2: "", phone3: "", phone4: "", phone5: "", location: "", pending_balance: "" });
+
     try {
-      const method = editingCustomerId ? "PUT" : "POST";
-      const url = editingCustomerId 
-        ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers/${editingCustomerId}`
-        : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers/`;
-        
       const res = await fetch(url, {
         method: method,
         headers: { 
@@ -92,33 +117,22 @@ export default function CustomersPage() {
           credit_limit: parseFloat(formData.pending_balance) || 0
         })
       });
-      
-      if (res.ok) {
+      if (res.ok && !editingCustomerId) {
+        // Re-fetch to get real ID
         fetchCustomers();
-        setIsModalOpen(false);
-        setEditingCustomerId(null);
-        setFormData({ name: "", phone: "", phone2: "", phone3: "", phone4: "", phone5: "", location: "", pending_balance: "" });
-      } else {
-        alert("Failed to save customer. Please try again.");
       }
-    } catch (error) {
-      console.error("Error adding customer:", error);
-      alert("An unexpected error occurred.");
-    } finally {
-      setIsSaving(false);
-    }
+    } catch (error) {}
   };
 
   const handleDeleteCustomer = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this customer?")) return;
+    setCustomers(prev => prev.filter(c => c.id !== id));
+    
     const token = localStorage.getItem("token");
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers/${id}`, {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers/${id}`, {
       method: "DELETE",
       headers: { "Authorization": `Bearer ${token}` }
     });
-    if (res.ok) {
-      fetchCustomers();
-    }
   };
 
   const openPriceModal = async (customer: any) => {

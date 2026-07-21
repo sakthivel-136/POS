@@ -73,44 +73,57 @@ export default function ProductsPage() {
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products`, {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}` 
-      },
-      body: JSON.stringify({
-        product_name: newProduct.product_name,
-        tamil_name: newProduct.tamil_name || "",
-        category: "Spices",
-        default_selling_price: parseFloat(newProduct.default_selling_price || "0"),
-        unit: newProduct.unit,
-        current_stock: parseFloat(newProduct.current_stock || "0"),
-        minimum_stock: parseFloat(newProduct.minimum_stock.toString() || "0"),
-        status: newProduct.status
-      })
-    });
     
-    if (res.ok) {
-      fetchProducts();
-      setIsAddModalOpen(false);
-    } else {
-      alert("Failed to add product");
-    }
+    // Optimistic UI Update
+    setIsAddModalOpen(false);
+    const fakeId = Math.random() * -10000;
+    setProducts(prev => [{
+      id: fakeId,
+      product_name: newProduct.product_name,
+      tamil_name: newProduct.tamil_name || "",
+      category: "Spices",
+      default_selling_price: parseFloat(newProduct.default_selling_price || "0"),
+      unit: newProduct.unit,
+      current_stock: parseFloat(newProduct.current_stock || "0"),
+      minimum_stock: parseFloat(newProduct.minimum_stock?.toString() || "0"),
+      status: newProduct.status
+    }, ...prev]);
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
+        body: JSON.stringify({
+          product_name: newProduct.product_name,
+          tamil_name: newProduct.tamil_name || "",
+          category: "Spices",
+          default_selling_price: parseFloat(newProduct.default_selling_price || "0"),
+          unit: newProduct.unit,
+          current_stock: parseFloat(newProduct.current_stock || "0"),
+          minimum_stock: parseFloat(newProduct.minimum_stock?.toString() || "0"),
+          status: newProduct.status
+        })
+      });
+      if (res.ok) {
+        fetchProducts(); // refresh for real ID
+      }
+    } catch (err) {}
   };
 
   const handleDeleteProduct = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this product?")) return;
+    
+    // Optimistic delete
+    setProducts(prev => prev.filter(p => p.id !== id));
+    
     const token = localStorage.getItem("token");
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products/${id}`, {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products/${id}`, {
       method: "DELETE",
       headers: { "Authorization": `Bearer ${token}` }
     });
-    if (res.ok) {
-      fetchProducts();
-    } else {
-      alert("Failed to delete. Only admins can delete products.");
-    }
   };
 
   const openEditModal = (product: any) => {
@@ -127,30 +140,38 @@ export default function ProductsPage() {
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = localStorage.getItem("token");
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products/${editingProduct.id}`, {
-      method: "PUT",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}` 
-      },
-      body: JSON.stringify({
-        product_name: editingProduct.product_name,
-        tamil_name: editingProduct.tamil_name || "",
-        category: "Spices",
-        default_selling_price: parseFloat(editingProduct.default_selling_price),
-        unit: "pcs",
-        current_stock: parseFloat(editingProduct.current_stock),
-        minimum_stock: 10,
-        status: editingProduct.status
-      })
-    });
-    if (res.ok) {
-      fetchProducts();
-      setIsEditModalOpen(false);
-    } else {
-      alert("Failed to update product");
-    }
+    
+    // Optimistic UI Update
+    setIsEditModalOpen(false);
+    setProducts(prev => prev.map(p => p.id === editingProduct.id ? {
+      ...p,
+      product_name: editingProduct.product_name,
+      tamil_name: editingProduct.tamil_name || "",
+      default_selling_price: parseFloat(editingProduct.default_selling_price),
+      current_stock: parseFloat(editingProduct.current_stock),
+      status: editingProduct.status
+    } : p));
+
+    try {
+      const token = localStorage.getItem("token");
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products/${editingProduct.id}`, {
+        method: "PUT",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
+        body: JSON.stringify({
+          product_name: editingProduct.product_name,
+          tamil_name: editingProduct.tamil_name || "",
+          category: "Spices",
+          default_selling_price: parseFloat(editingProduct.default_selling_price),
+          unit: "pcs",
+          current_stock: parseFloat(editingProduct.current_stock),
+          minimum_stock: 10,
+          status: editingProduct.status
+        })
+      });
+    } catch (err) {}
   };
 
   return (

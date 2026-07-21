@@ -119,54 +119,48 @@ export default function OrdersPage() {
 
   const handleEditSave = async () => {
     if (!editOrder) return;
-    setIsEditing(true);
+    
+    // Optimistic UI update
+    const total = editItems.reduce((s, i) => s + i.amount, 0);
+    setOrders(prev => prev.map(o => o.id === editOrder.id ? { ...o, total_amount: total, order_items: editItems } : o));
+    const currentId = editOrder.id;
+    setEditOrder(null);
+    
     try {
-      const total = editItems.reduce((s, i) => s + i.amount, 0);
       const token = localStorage.getItem("token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/orders/${editOrder.id}/edit`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/orders/${currentId}/edit`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ items: editItems, total_amount: total })
       });
       if (res.ok) {
-        setEditOrder(null);
+        // Just refresh background
         fetchOrders(true);
-      } else {
-        alert("Failed to edit order");
       }
-    } catch (e) {
-      console.error(e);
-      alert("Error editing order");
-    } finally {
-      setIsEditing(false);
-    }
+    } catch (e) {}
   };
   const handleDeliver = async () => {
     if (!deliverOrder) return;
-    setIsDelivering(true);
 
     const total = parseFloat(deliverOrder.total_amount);
     let paid = 0;
     if (paymentType === "paid") paid = total;
     else if (paymentType === "partially_paid") paid = parseFloat(amountPaid) || 0;
 
+    // Optimistic UI update
+    setOrders(prev => prev.map(o => o.id === deliverOrder.id ? { ...o, status: "delivered" } : o));
+    const currentId = deliverOrder.id;
+    setDeliverOrder(null);
+    
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/orders/${deliverOrder.id}/process`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/orders/${currentId}/process`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ status: "delivered", amount_paid: paid, payment_status: paymentType })
       });
-
-      if (res.ok) {
-        setDeliverOrder(null);
-        fetchOrders();
-      } else {
-        const err = await res.json();
-        alert("Failed: " + (err.detail || "Unknown error"));
-      }
-    } catch (e) { alert("Network Error"); }
-    finally { setIsDelivering(false); }
+      fetchOrders(true);
+    } catch (e) {}
   };
 
   const rejectOrder = async (orderId: number) => {
