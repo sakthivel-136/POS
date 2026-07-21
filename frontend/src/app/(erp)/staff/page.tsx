@@ -93,11 +93,7 @@ export default function StaffManagementPage() {
     } catch (err) { alert("An unexpected error occurred"); }
   };
 
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editUser) return;
-    setIsEditing(true);
-    
+
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editUser) return;
