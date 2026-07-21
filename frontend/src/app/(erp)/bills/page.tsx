@@ -120,12 +120,14 @@ export default function BillsPage() {
     if (!selectedProductId) return;
     const prod = products.find(p => p.id.toString() === selectedProductId);
     if (!prod) return;
-    const existing = editingItems.find(i => i.product_id === prod.id);
-    if (existing) {
-      setEditingItems(editingItems.map(i => i.product_id === prod.id ? { ...i, qty: parseFloat(i.qty) + 1 } : i));
-    } else {
-      setEditingItems([...editingItems, { product_id: prod.id, product_name: prod.product_name, qty: 1, rateToUse: parseFloat(prod.default_selling_price || "0") }]);
-    }
+    setEditingItems(prev => {
+      const existing = prev.find(i => i.product_id === prod.id);
+      if (existing) {
+        return prev.map(i => i.product_id === prod.id ? { ...i, qty: parseFloat(i.qty) + 1 } : i);
+      } else {
+        return [...prev, { product_id: prod.id, product_name: prod.product_name, qty: 1, rateToUse: parseFloat(prod.default_selling_price || "0") }];
+      }
+    });
     setSelectedProductId("");
   };
 
@@ -500,42 +502,32 @@ export default function BillsPage() {
                             className="h-8 text-center text-black px-1"
                             value={item.rateToUse}
                             onChange={(e) => {
-                              const newItems = [...editingItems];
-                              newItems[index].rateToUse = parseFloat(e.target.value) || 0;
-                              setEditingItems(newItems);
+                              setEditingItems(prev => prev.map((it, i) => i === index ? { ...it, rateToUse: parseFloat(e.target.value) || 0 } : it));
                             }}
                           />
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-1 bg-gray-50 p-1 rounded-lg border border-gray-100">
-                            <button onClick={() => {
-                              const newItems = [...editingItems];
-                              newItems[index].qty = Math.max(1, newItems[index].qty - 1);
-                              setEditingItems(newItems);
+                            <button type="button" onClick={() => {
+                              setEditingItems(prev => prev.map((it, i) => i === index ? { ...it, qty: Math.max(1, parseFloat(it.qty) - 1) } : it));
                             }} className="w-6 h-6 rounded bg-white border flex items-center justify-center text-gray-600 hover:bg-gray-100 text-lg leading-none shrink-0">-</button>
                             <Input 
                               type="number" 
                               className="h-6 w-12 text-center border-0 bg-transparent p-0 focus-visible:ring-0 text-black font-semibold"
                               value={item.qty}
                               onChange={(e) => {
-                                const newItems = [...editingItems];
-                                newItems[index].qty = Math.max(1, parseFloat(e.target.value) || 1);
-                                setEditingItems(newItems);
+                                setEditingItems(prev => prev.map((it, i) => i === index ? { ...it, qty: Math.max(1, parseFloat(e.target.value) || 1) } : it));
                               }}
                             />
-                            <button onClick={() => {
-                              const newItems = [...editingItems];
-                              newItems[index].qty += 1;
-                              setEditingItems(newItems);
+                            <button type="button" onClick={() => {
+                              setEditingItems(prev => prev.map((it, i) => i === index ? { ...it, qty: parseFloat(it.qty) + 1 } : it));
                             }} className="w-6 h-6 rounded bg-white border flex items-center justify-center text-gray-600 hover:bg-gray-100 text-sm leading-none shrink-0">+</button>
                           </div>
                         </TableCell>
                         <TableCell className="text-right font-bold text-gray-900">₹{(item.rateToUse * item.qty).toFixed(0)}</TableCell>
                         <TableCell className="text-right">
-                          <button onClick={() => {
-                            const newItems = [...editingItems];
-                            newItems.splice(index, 1);
-                            setEditingItems(newItems);
+                          <button type="button" onClick={() => {
+                            setEditingItems(prev => prev.filter((_, i) => i !== index));
                           }} className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50">
                             <X className="w-4 h-4" />
                           </button>
