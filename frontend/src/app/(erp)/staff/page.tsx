@@ -98,20 +98,26 @@ export default function StaffManagementPage() {
     if (!editUser) return;
     setIsEditing(true);
     
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editUser) return;
+    
+    const userId = editUser.id;
+    const newUsername = editUsername;
+    const newStatus = editStatus;
+    
+    // Optimistic update
+    setUsers(users.map(u => u.id === userId ? { ...u, username: newUsername, status: newStatus } : u));
+    setEditUser(null);
+    
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/users/${editUser.id}`, {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/users/${userId}`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ username: editUsername, status: editStatus })
+        body: JSON.stringify({ username: newUsername, status: newStatus })
       });
-      
-      if (res.ok) {
-        setEditUser(null);
-        fetchUsers();
-      } else alert("Failed to update user details");
-    } catch (err) { alert("An unexpected error occurred"); }
-    finally { setIsEditing(false); }
+    } catch (err) {}
   };
 
   const handleResetSubmit = async (e: React.FormEvent) => {
@@ -121,23 +127,22 @@ export default function StaffManagementPage() {
         alert("Password must be at least 6 characters");
         return;
     }
-    setIsResetting(true);
+    
+    const userId = resetUser.id;
+    const pwd = newPassword;
+    
+    // Optimistic close
+    setResetUser(null);
+    setNewPassword("");
     
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/users/${resetUser.id}/reset-password`, {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/users/${userId}/reset-password`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ new_password: newPassword })
+        body: JSON.stringify({ new_password: pwd })
       });
-      
-      if (res.ok) {
-        setResetUser(null);
-        setNewPassword("");
-        alert("Password reset successfully!");
-      } else alert("Failed to reset password");
-    } catch (err) { alert("An unexpected error occurred"); }
-    finally { setIsResetting(false); }
+    } catch (err) {}
   };
 
   if (isLoading) return <div className="p-8 text-center">Loading Staff Management...</div>;
@@ -246,7 +251,7 @@ export default function StaffManagementPage() {
       {/* Edit User Modal */}
       {editUser && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md shadow-xl animate-in zoom-in-95 duration-200">
+          <Card className="w-full max-w-md shadow-xl animate-in zoom-in-95 duration-200 bg-white">
             <CardHeader className="border-b bg-gray-50">
               <CardTitle>Edit Staff Details</CardTitle>
             </CardHeader>
@@ -287,8 +292,8 @@ export default function StaffManagementPage() {
       {/* Reset Password Modal */}
       {resetUser && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md shadow-xl animate-in zoom-in-95 duration-200">
-            <CardHeader className="border-b bg-rose-50 text-rose-900">
+          <Card className="w-full max-w-md shadow-xl animate-in zoom-in-95 duration-200 bg-white">
+            <CardHeader className="border-b bg-rose-50 text-rose-900 rounded-t-xl">
               <CardTitle className="flex items-center gap-2">
                 <KeyRound className="w-5 h-5" /> 
                 Reset Password
