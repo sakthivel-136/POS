@@ -735,32 +735,26 @@ export default function CustomerPortal() {
             </div>
             
             <div className="p-5 overflow-y-auto flex-1 space-y-4">
-              {/* Product Search / Add */}
+              {/* Product Select / Add */}
               <div className="bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100/50 space-y-2">
                 <label className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">Add Product</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-600/50" />
-                  <input
-                    type="text"
-                    placeholder="Search catalog..." 
-                    value={editProductSearch}
-                    onChange={(e) => setEditProductSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-white border border-emerald-100 rounded-xl text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
-                  />
-                </div>
-                {editProductSearch.length > 0 && (
-                  <div className="bg-white rounded-xl shadow-sm border overflow-hidden max-h-40 overflow-y-auto divide-y mt-2">
-                    {products.filter(p => (p.product_name || "").toLowerCase().includes(editProductSearch.toLowerCase()) || (p.tamil_name || "").toLowerCase().includes(editProductSearch.toLowerCase())).map(p => (
-                      <div key={p.product_id} className="p-2.5 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                        <div>
-                          <p className="font-semibold text-sm text-gray-900">{p.product_name}</p>
-                          <p className="text-xs text-gray-500 font-medium">₹{p.price} /{p.unit}</p>
-                        </div>
-                        <button className="bg-emerald-600 text-white hover:bg-emerald-700 h-7 text-xs px-3 rounded-lg font-bold active:scale-95 transition-all" onClick={() => addProductToEditOrder(p)}>Add</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const selected = products.find(p => String(p.product_id) === e.target.value);
+                    if (selected) {
+                      addProductToEditOrder(selected);
+                    }
+                  }}
+                  className="w-full bg-white border border-emerald-100 rounded-xl px-3 py-2 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm appearance-none cursor-pointer"
+                >
+                  <option value="" disabled>Select a product to add...</option>
+                  {products.map(p => (
+                    <option key={p.product_id} value={p.product_id}>
+                      {p.product_name} {p.tamil_name ? `(${p.tamil_name})` : ''} - ₹{p.price} /{p.unit}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {editItems.length === 0 ? (

@@ -518,31 +518,26 @@ export default function OrdersPage() {
             </div>
             
             <div className="p-6 overflow-y-auto flex-1 space-y-4">
-              {/* Product Search / Add */}
+              {/* Product Select / Add */}
               <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100/50 space-y-3">
                 <label className="text-sm font-semibold text-emerald-800">Add Product to Order</label>
-                <Input 
-                  placeholder="Search products..." 
-                  value={productSearch}
-                  onChange={(e) => setProductSearch(e.target.value)}
-                  className="bg-white border-emerald-100"
-                />
-                {productSearch.length > 0 && (
-                  <div className="bg-white rounded-xl shadow-sm border overflow-hidden max-h-48 overflow-y-auto divide-y">
-                    {products.filter(p => (p.product_name || "").toLowerCase().includes(productSearch.toLowerCase()) || (p.tamil_name || "").toLowerCase().includes(productSearch.toLowerCase())).map(p => (
-                      <div key={p.id} className="p-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                        <div>
-                          <p className="font-semibold text-sm">{p.product_name}</p>
-                          {p.tamil_name && <p className="text-xs text-muted-foreground">{p.tamil_name}</p>}
-                        </div>
-                        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 h-8 text-xs px-3" onClick={() => addProductToEditOrder(p)}>Add</Button>
-                      </div>
-                    ))}
-                    {products.filter(p => (p.product_name || "").toLowerCase().includes(productSearch.toLowerCase()) || (p.tamil_name || "").toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
-                      <div className="p-4 text-center text-sm text-gray-500">No products found</div>
-                    )}
-                  </div>
-                )}
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const selected = products.find(p => String(p.id) === e.target.value);
+                    if (selected) {
+                      addProductToEditOrder(selected);
+                    }
+                  }}
+                  className="w-full bg-white border border-emerald-100 rounded-xl px-4 py-3 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm appearance-none cursor-pointer"
+                >
+                  <option value="" disabled>Select a product to add...</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.product_name} {p.tamil_name ? `(${p.tamil_name})` : ''} - ₹{customerRates[p.id] !== undefined ? customerRates[p.id] : (p.default_selling_price || 0)}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {editItems.length === 0 ? (
