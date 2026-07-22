@@ -119,7 +119,8 @@ def update_full_bill(
     for item in old_items:
         p_res = supabase.table('products').select('current_stock').eq('id', item['product_id']).execute()
         if p_res.data:
-            new_stock = float(p_res.data[0]['current_stock']) + float(item['quantity'])
+            current_stock = p_res.data[0].get('current_stock')
+            new_stock = float(current_stock if current_stock is not None else 0) + float(item['quantity'])
             supabase.table('products').update({'current_stock': new_stock}).eq('id', item['product_id']).execute()
             
             # Record reversion
@@ -152,7 +153,8 @@ def update_full_bill(
         
         p_res = supabase.table('products').select('current_stock').eq('id', item.product_id).execute()
         if p_res.data:
-            new_stock = float(p_res.data[0]['current_stock']) - float(item.quantity)
+            current_stock = p_res.data[0].get('current_stock')
+            new_stock = float(current_stock if current_stock is not None else 0) - float(item.quantity)
             supabase.table('products').update({'current_stock': new_stock}).eq('id', item.product_id).execute()
             
             supabase.table('stock_transactions').insert({
