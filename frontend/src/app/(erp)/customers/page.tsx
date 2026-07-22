@@ -37,6 +37,8 @@ export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [customPrices, setCustomPrices] = useState<any>({});
+  const [pendingPriceChanges, setPendingPriceChanges] = useState<any>({});
+  const [isPriceConfirmModalOpen, setIsPriceConfirmModalOpen] = useState(false);
   
   const [isBillsModalOpen, setIsBillsModalOpen] = useState(false);
   const [selectedCustomerBills, setSelectedCustomerBills] = useState<any[]>([]);
@@ -125,6 +127,7 @@ export default function CustomersPage() {
 
   const openPriceModal = async (customer: any) => {
     setSelectedCustomer(customer);
+    setPendingPriceChanges({});
     setIsPriceModalOpen(true);
     
     const token = localStorage.getItem("token");
@@ -145,27 +148,45 @@ export default function CustomersPage() {
     }
   };
 
-  const saveCustomPrice = async (productId: number, price: number) => {
+  const handleReviewChanges = () => {
+    if (Object.keys(pendingPriceChanges).length === 0) {
+      alert("No changes made.");
+      return;
+    }
+    setIsPriceConfirmModalOpen(true);
+  };
+
+  const handleSaveAllPrices = async () => {
     if (!selectedCustomer) return;
+    setIsSaving(true);
     const token = localStorage.getItem("token");
     
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers/${selectedCustomer.id}/prices`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` 
-        },
-        body: JSON.stringify({
-          product_id: productId,
-          custom_price: price
-        })
+      const promises = Object.entries(pendingPriceChanges).map(([productId, price]) => {
+        return fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers/${selectedCustomer.id}/prices`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}` 
+          },
+          body: JSON.stringify({
+            product_id: Number(productId),
+            custom_price: price
+          })
+        });
       });
-      if (res.ok) {
-        setCustomPrices({ ...customPrices, [productId]: price });
-      }
+      
+      await Promise.all(promises);
+      
+      // Update local state
+      setCustomPrices({ ...customPrices, ...pendingPriceChanges });
+      setPendingPriceChanges({});
+      setIsPriceConfirmModalOpen(false);
+      setIsPriceModalOpen(false);
     } catch (e) {
-      console.error(e);
+      alert("Network Error while saving prices.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -371,17 +392,70 @@ export default function CustomersPage() {
                       type="number"
                       placeholder="e.g. 2400"
                       className="w-32 bg-white"
-                      value={customPrices[product.id] || ""}
-                      onChange={(e) => setCustomPrices({...customPrices, [product.id]: Number(e.target.value)})}
-                      onBlur={(e) => {
-                        if (e.target.value) {
-                          saveCustomPrice(product.id, Number(e.target.value));
+                      value={pendingPriceChanges[product.id] !== undefined ? pendingPriceChanges[product.id] : (customPrices[product.id] || "")}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "") {
+                          // Allow clearing the value
+                          setPendingPriceChanges({...pendingPriceChanges, [product.id]: ""});
+                        } else {
+                          setPendingPriceChanges({...pendingPriceChanges, [product.id]: Number(val)});
                         }
                       }}
                     />
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3 rounded-b-2xl">
+              <Button variant="outline" onClick={() => setIsPriceModalOpen(false)}>Cancel</Button>
+              <Button onClick={handleReviewChanges} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                Review Changes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {isPriceConfirmModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b flex justify-between items-center bg-emerald-50">
+              <h2 className="text-xl font-bold text-emerald-800">Confirm Price Changes</h2>
+              <button onClick={() => setIsPriceConfirmModalOpen(false)} disabled={isSaving} className="text-gray-400 hover:text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 flex-1 overflow-y-auto space-y-3 bg-gray-50/50">
+              {Object.entries(pendingPriceChanges).map(([productId, newPrice]) => {
+                const product = products.find(p => p.id.toString() === productId);
+                if (!product) return null;
+                const oldPrice = customPrices[product.id];
+                return (
+                  <div key={productId} className="flex justify-between items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100">
+                    <div>
+                      <p className="font-bold text-gray-900">{product.product_name}</p>
+                      <p className="text-xs text-gray-500">Default: ₹{product.default_selling_price || 0}</p>
+                    </div>
+                    <div className="text-right">
+                      {oldPrice !== undefined && oldPrice !== "" && (
+                        <p className="text-xs text-red-500 line-through">₹{oldPrice}</p>
+                      )}
+                      <p className="font-bold text-emerald-600 text-lg">₹{newPrice === "" ? "Cleared" : String(newPrice)}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="px-6 py-4 border-t bg-white flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setIsPriceConfirmModalOpen(false)} disabled={isSaving}>Back to Edit</Button>
+              <Button onClick={handleSaveAllPrices} disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                {isSaving ? "Saving..." : "Confirm & Save"}
+              </Button>
             </div>
           </div>
         </div>
