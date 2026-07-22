@@ -22,6 +22,7 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<any>(null);
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [newProduct, setNewProduct] = useState({
     product_name: "",
     tamil_name: "",
@@ -39,7 +40,8 @@ export default function ProductsPage() {
     
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store'
       });
       if (res.ok) {
         const data = await res.json();
@@ -72,22 +74,8 @@ export default function ProductsPage() {
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     const token = localStorage.getItem("token");
-    
-    // Optimistic UI Update
-    setIsAddModalOpen(false);
-    const fakeId = Math.random() * -10000;
-    setProducts(prev => [{
-      id: fakeId,
-      product_name: newProduct.product_name,
-      tamil_name: newProduct.tamil_name || "",
-      category: "Spices",
-      default_selling_price: parseFloat(newProduct.default_selling_price || "0"),
-      unit: newProduct.unit,
-      current_stock: parseFloat(newProduct.current_stock || "0"),
-      minimum_stock: parseFloat(newProduct.minimum_stock?.toString() || "0"),
-      status: newProduct.status
-    }, ...prev]);
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products`, {
@@ -108,22 +96,31 @@ export default function ProductsPage() {
         })
       });
       if (res.ok) {
+        setIsAddModalOpen(false);
         fetchProducts(); // refresh for real ID
+      } else {
+        alert("Failed to save product.");
       }
-    } catch (err) {}
+    } catch (err) {
+      alert("Network Error.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDeleteProduct = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this product?")) return;
     
-    // Optimistic delete
-    setProducts(prev => prev.filter(p => p.id !== id));
-    
     const token = localStorage.getItem("token");
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products/${id}`, {
-      method: "DELETE",
-      headers: { "Authorization": `Bearer ${token}` }
-    });
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products/${id}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) fetchProducts();
+    } catch (err) {
+      alert("Network Error.");
+    }
   };
 
   const openEditModal = (product: any) => {
@@ -140,21 +137,11 @@ export default function ProductsPage() {
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Optimistic UI Update
-    setIsEditModalOpen(false);
-    setProducts(prev => prev.map(p => p.id === editingProduct.id ? {
-      ...p,
-      product_name: editingProduct.product_name,
-      tamil_name: editingProduct.tamil_name || "",
-      default_selling_price: parseFloat(editingProduct.default_selling_price),
-      current_stock: parseFloat(editingProduct.current_stock),
-      status: editingProduct.status
-    } : p));
+    setIsSaving(true);
 
     try {
       const token = localStorage.getItem("token");
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products/${editingProduct.id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products/${editingProduct.id}`, {
         method: "PUT",
         headers: { 
           "Content-Type": "application/json",
@@ -171,7 +158,17 @@ export default function ProductsPage() {
           status: editingProduct.status
         })
       });
-    } catch (err) {}
+      if (res.ok) {
+        setIsEditModalOpen(false);
+        fetchProducts();
+      } else {
+        alert("Failed to save changes.");
+      }
+    } catch (err) {
+      alert("Network Error.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -304,11 +301,11 @@ export default function ProductsPage() {
               </div>
 
               <div className="pt-4 flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)} disabled={isSaving}>
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-[#1a1752] hover:bg-[#2a267c] text-white">
-                  Save Changes
+                <Button type="submit" disabled={isSaving} className="bg-[#1a1752] hover:bg-[#2a267c] text-white">
+                  {isSaving ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </form>
@@ -393,11 +390,11 @@ export default function ProductsPage() {
               </div>
 
               <div className="pt-4 flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)} disabled={isSaving}>
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-[#1a1752] hover:bg-[#2a267c] text-white">
-                  Add Product
+                <Button type="submit" disabled={isSaving} className="bg-[#1a1752] hover:bg-[#2a267c] text-white">
+                  {isSaving ? "Saving..." : "Add Product"}
                 </Button>
               </div>
             </form>

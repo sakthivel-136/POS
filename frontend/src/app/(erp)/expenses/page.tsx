@@ -10,6 +10,7 @@ import { Plus, Trash2, IndianRupee } from "lucide-react";
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<number | null>(null);
   const [formData, setFormData] = useState({ date: new Date().toISOString().split('T')[0], category: "Rent", amount: "", description: "" });
 
@@ -18,7 +19,8 @@ export default function ExpensesPage() {
     if (!token) return;
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/expenses`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store'
       });
       if (res.ok) setExpenses(await res.json());
     } catch (err) {
@@ -49,23 +51,12 @@ export default function ExpensesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     const token = localStorage.getItem("token");
     const method = editingExpenseId ? "PUT" : "POST";
     const url = editingExpenseId 
         ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/expenses/${editingExpenseId}`
         : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/expenses`;
-
-    // Optimistic UI Update
-    setIsModalOpen(false);
-    if (editingExpenseId) {
-      setExpenses(prev => prev.map(ex => ex.id === editingExpenseId ? { ...ex, ...formData, amount: parseFloat(formData.amount) } : ex));
-    } else {
-      const fakeId = Math.random() * -10000;
-      setExpenses(prev => [{ id: fakeId, ...formData, amount: parseFloat(formData.amount) }, ...prev]);
-    }
-    setFormData({ date: new Date().toISOString().split('T')[0], category: "Rent", amount: "", description: "" });
-    const currentEditId = editingExpenseId;
-    setEditingExpenseId(null);
 
     try {
       const res = await fetch(url, {
@@ -73,25 +64,34 @@ export default function ExpensesPage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount) })
       });
-      if (res.ok && !currentEditId) {
+      if (res.ok) {
+        setIsModalOpen(false);
+        setFormData({ date: new Date().toISOString().split('T')[0], category: "Rent", amount: "", description: "" });
+        setEditingExpenseId(null);
         fetchExpenses();
+      } else {
+        alert("Failed to save expense.");
       }
-    } catch (err) {}
+    } catch (err) {
+      alert("Network Error.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const deleteExpense = async (id: number) => {
     if (!confirm("Are you sure you want to delete this expense?")) return;
     
-    // Optimistic delete
-    setExpenses(prev => prev.filter(e => e.id !== id));
-    
     const token = localStorage.getItem("token");
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/expenses/${id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/expenses/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       });
-    } catch (err) {}
+      if (res.ok) fetchExpenses();
+    } catch (err) {
+      alert("Network Error.");
+    }
   };
 
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
@@ -195,8 +195,10 @@ export default function ExpensesPage() {
                 <Input type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
               </div>
               <div className="flex justify-end gap-3 mt-6">
-                <Button variant="outline" type="button" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">Save Expense</Button>
+                <Button variant="outline" type="button" onClick={() => setIsModalOpen(false)} disabled={isSaving}>Cancel</Button>
+                <Button type="submit" disabled={isSaving} className="bg-blue-600 hover:bg-blue-700 text-white">
+                  {isSaving ? "Saving..." : "Save Expense"}
+                </Button>
               </div>
             </form>
           </div>

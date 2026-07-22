@@ -41,18 +41,19 @@ export default function OrdersPage() {
   const [deliverOrder, setDeliverOrder] = useState<any>(null);
   const [paymentType, setPaymentType] = useState<"unpaid" | "partially_paid" | "paid">("unpaid");
   const [amountPaid, setAmountPaid] = useState("");
-  const [isDelivering, setIsDelivering] = useState(false);
 
   // Edit Order Modal state
   const [editOrder, setEditOrder] = useState<any>(null);
   const [editItems, setEditItems] = useState<any[]>([]);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
 
   const fetchOrders = useCallback(async (silent = false) => {
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/orders`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store'
       });
       if (res.ok) {
         const data = await res.json();
@@ -119,12 +120,9 @@ export default function OrdersPage() {
 
   const handleEditSave = async () => {
     if (!editOrder) return;
-    
-    // Optimistic UI update
+    setIsSaving(true);
     const total = editItems.reduce((s, i) => s + i.amount, 0);
-    setOrders(prev => prev.map(o => o.id === editOrder.id ? { ...o, total_amount: total, order_items: editItems } : o));
     const currentId = editOrder.id;
-    setEditOrder(null);
     
     try {
       const token = localStorage.getItem("token");
@@ -134,33 +132,48 @@ export default function OrdersPage() {
         body: JSON.stringify({ items: editItems, total_amount: total })
       });
       if (res.ok) {
-        // Just refresh background
+        setOrders(prev => prev.map(o => o.id === currentId ? { ...o, total_amount: total, order_items: editItems } : o));
+        setEditOrder(null);
         fetchOrders(true);
+      } else {
+        alert("Failed to save changes.");
       }
-    } catch (e) {}
+    } catch (e) {
+      alert("Network Error.");
+    } finally {
+      setIsSaving(false);
+    }
   };
   const handleDeliver = async () => {
     if (!deliverOrder) return;
+    setIsSaving(true);
 
     const total = parseFloat(deliverOrder.total_amount);
     let paid = 0;
     if (paymentType === "paid") paid = total;
     else if (paymentType === "partially_paid") paid = parseFloat(amountPaid) || 0;
 
-    // Optimistic UI update
-    setOrders(prev => prev.map(o => o.id === deliverOrder.id ? { ...o, status: "delivered" } : o));
     const currentId = deliverOrder.id;
-    setDeliverOrder(null);
     
     try {
       const token = localStorage.getItem("token");
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/orders/${currentId}/process`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/orders/${currentId}/process`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ status: "delivered", amount_paid: paid, payment_status: paymentType })
       });
-      fetchOrders(true);
-    } catch (e) {}
+      if (res.ok) {
+        setOrders(prev => prev.map(o => o.id === currentId ? { ...o, status: "delivered" } : o));
+        setDeliverOrder(null);
+        fetchOrders(true);
+      } else {
+        alert("Failed to process delivery.");
+      }
+    } catch (e) {
+      alert("Network Error.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const rejectOrder = async (orderId: number) => {
@@ -408,15 +421,15 @@ export default function OrdersPage() {
             </div>
 
             <div className="px-6 pb-6 flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setDeliverOrder(null)}>
+              <Button variant="outline" className="flex-1" onClick={() => setDeliverOrder(null)} disabled={isSaving}>
                 Cancel
               </Button>
               <Button
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
                 onClick={handleDeliver}
-                disabled={isDelivering || (paymentType === "partially_paid" && !amountPaid)}
+                disabled={isSaving || (paymentType === "partially_paid" && !amountPaid)}
               >
-                {isDelivering ? "Saving..." : "Confirm Delivery"}
+                {isSaving ? "Saving..." : "Confirm Delivery"}
               </Button>
             </div>
           </div>
@@ -466,9 +479,9 @@ export default function OrdersPage() {
                 <span className="font-bold text-emerald-600">₹{editItems.reduce((s, i) => s + i.amount, 0).toFixed(2)}</span>
               </div>
               <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setEditOrder(null)}>Cancel</Button>
-                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={isEditing} onClick={handleEditSave}>
-                  {isEditing ? "Saving..." : "Save Changes"}
+                <Button variant="outline" onClick={() => setEditOrder(null)} disabled={isSaving}>Cancel</Button>
+                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={isSaving} onClick={handleEditSave}>
+                  {isSaving ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </div>

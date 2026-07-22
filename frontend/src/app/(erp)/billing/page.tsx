@@ -10,13 +10,13 @@ export default function BillingPOS() {
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
   const [savedBillId, setSavedBillId] = useState<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Payment mode state
   const [paymentMode, setPaymentMode] = useState<"unpaid" | "partially_paid" | "paid">("unpaid");
-  const [receivedAmount, setReceivedAmount] = useState(0);
+  const [receivedAmount, setReceivedAmount] = useState<number>(0);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [products, setProducts] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -31,9 +31,9 @@ export default function BillingPOS() {
       const token = localStorage.getItem("token");
       if (!token) return;
       try {
-        const [prodRes, custRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers`, { headers: { Authorization: `Bearer ${token}` } })
+        const [custRes, prodRes] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
         ]);
         let loadedProducts = [];
         let loadedCustomers = [];
@@ -134,13 +134,7 @@ export default function BillingPOS() {
       ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing/${editBillId}/full`
       : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing/`;
       
-    // Optimistic reset
-    if (!isEditMode) {
-      setItems([]);
-      setPaymentMode("unpaid");
-      setReceivedAmount(0);
-      setSelectedCustomer(null);
-    }
+    setIsSaving(true);
 
     try {
       const res = await fetch(url, {
@@ -151,16 +145,28 @@ export default function BillingPOS() {
       if (res.ok) {
         const data = await res.json();
         setSavedBillId(data.id || null);
+        
+        // Reset only after success
+        if (!isEditMode) {
+          setItems([]);
+          setPaymentMode("unpaid");
+          setReceivedAmount(0);
+          setSelectedCustomer(null);
+        }
+        
         if (isEditMode) {
           window.location.href = "/bills"; // Redirect back to bills history after edit
-          return data;
         }
         return data;
       } else {
+        alert("Failed to save bill.");
         return null;
       }
     } catch (err) {
+      alert("Network Error.");
       return null;
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -408,7 +414,7 @@ export default function BillingPOS() {
                 <Button onClick={handleSaveBill} disabled={isSaving} className="flex-1 py-6 bg-emerald-600 hover:bg-emerald-700 text-white">
                   <CheckCircle2 className="w-5 h-5 mr-2" /> {isSaving ? "Saving..." : (isEditMode ? `Update Bill #${editBillId}` : "Save Bill")}
                 </Button>
-                <Button variant="outline" className="flex-1 py-6 bg-white border-gray-300 text-black hover:bg-gray-100" onClick={handleDownloadPDF}>
+                <Button variant="outline" className="flex-1 py-6 bg-white border-gray-300 text-black hover:bg-gray-100" onClick={handleDownloadPDF} disabled={isSaving}>
                   <DownloadIcon className="w-5 h-5 mr-2" /> Download PDF
                 </Button>
               </div>

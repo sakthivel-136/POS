@@ -42,6 +42,7 @@ export default function BillsPage() {
 
   // Edit Items State
   const [isEditItemsModalOpen, setIsEditItemsModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [editingItems, setEditingItems] = useState<any[]>([]);
   const [itemsBill, setItemsBill] = useState<any>(null);
   const [selectedProductId, setSelectedProductId] = useState<string>("");
@@ -151,11 +152,9 @@ export default function BillsPage() {
     } else {
       newStatus = "unpaid";
     }
-
-    // Optimistic Update
-    setIsEditItemsModalOpen(false);
+    setIsSaving(true);
     
-    // Create new bill items array for optimistic UI
+    // Create new bill items array for API payload
     const newBillItems = editingItems.map(i => ({
       product_id: i.product_id,
       quantity: parseFloat(i.qty),
@@ -163,14 +162,6 @@ export default function BillsPage() {
       amount: parseFloat(i.qty) * parseFloat(i.rateToUse)
     }));
 
-    setBills(prev => prev.map(b => b.id === itemsBill.id ? { 
-      ...b, 
-      total_amount: newTotalAmount, 
-      paid_amount: finalPaid, 
-      pending_amount: newPending, 
-      status: newStatus,
-      bill_items: newBillItems
-    } : b));
     const currentItemsBill = itemsBill;
     
     try {
@@ -187,31 +178,33 @@ export default function BillsPage() {
           items: newBillItems
         })
       });
-      if (!res.ok) {
-        alert("Warning: Failed to save changes to the server. Page will reload.");
-        window.location.reload();
+      if (res.ok) {
+        setBills(prev => prev.map(b => b.id === itemsBill.id ? { 
+          ...b, 
+          total_amount: newTotalAmount, 
+          paid_amount: finalPaid, 
+          pending_amount: newPending, 
+          status: newStatus,
+          bill_items: newBillItems
+        } : b));
+        setIsEditItemsModalOpen(false);
+      } else {
+        alert("Warning: Failed to save changes to the server. Please try again.");
       }
     } catch (err) {
       alert("Network Error: Could not connect to the server.");
-      window.location.reload();
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Optimistic UI
-    setIsEditModalOpen(false);
-    setBills(prev => prev.map(b => b.id === editingBill.id ? {
-      ...b,
-      status: editingBill.status,
-      paid_amount: parseFloat(editingBill.paid_amount),
-      pending_amount: parseFloat(editingBill.pending_amount)
-    } : b));
+    setIsSaving(true);
     
     const token = localStorage.getItem("token");
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing/${editingBill.id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing/${editingBill.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({
@@ -220,7 +213,22 @@ export default function BillsPage() {
           pending_amount: parseFloat(editingBill.pending_amount)
         })
       });
-    } catch (err) {}
+      if (res.ok) {
+        setBills(prev => prev.map(b => b.id === editingBill.id ? {
+          ...b,
+          status: editingBill.status,
+          paid_amount: parseFloat(editingBill.paid_amount),
+          pending_amount: parseFloat(editingBill.pending_amount)
+        } : b));
+        setIsEditModalOpen(false);
+      } else {
+        alert("Failed to save bill.");
+      }
+    } catch (err) {
+      alert("Network Error: Could not connect to the server.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handlePaidChange = (newPaid: string) => {
@@ -470,8 +478,10 @@ export default function BillsPage() {
               </div>
 
               <div className="flex gap-3 pt-2">
-                <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)} className="flex-1">Cancel</Button>
-                <Button type="submit" className="flex-1 bg-[#1a1752] hover:bg-[#2a267c] text-white">Save Payment</Button>
+                <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)} disabled={isSaving} className="flex-1">Cancel</Button>
+                <Button type="submit" disabled={isSaving} className="flex-1 bg-[#1a1752] hover:bg-[#2a267c] text-white">
+                  {isSaving ? "Saving..." : "Save Payment"}
+                </Button>
               </div>
             </form>
           </div>
@@ -592,9 +602,9 @@ export default function BillsPage() {
             </div>
             
             <div className="p-4 border-t bg-white flex gap-3 shrink-0">
-              <Button type="button" variant="outline" onClick={() => setIsEditItemsModalOpen(false)} className="flex-1">Cancel</Button>
-              <Button type="button" onClick={handleEditItemsSubmit} disabled={isSavingItems} className="flex-1 bg-[#1a1752] hover:bg-[#2a267c] text-white">
-                {isSavingItems ? "Saving..." : "Update Bill Items"}
+              <Button type="button" variant="outline" onClick={() => setIsEditItemsModalOpen(false)} disabled={isSaving} className="flex-1">Cancel</Button>
+              <Button type="button" onClick={handleEditItemsSubmit} disabled={isSaving} className="flex-1 bg-[#1a1752] hover:bg-[#2a267c] text-white">
+                {isSaving ? "Saving..." : "Update Bill Items"}
               </Button>
             </div>
           </div>

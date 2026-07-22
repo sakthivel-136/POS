@@ -19,6 +19,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState("");
   const [customers, setCustomers] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({ 
     name: "", 
     phone: "", 
@@ -30,7 +31,7 @@ export default function CustomersPage() {
     pending_balance: ""
   });
   const [editingCustomerId, setEditingCustomerId] = useState<number | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
+
   
   const [isPriceModalOpen, setIsPriceModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
@@ -48,8 +49,8 @@ export default function CustomersPage() {
     
     try {
       const [custRes, prodRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
       ]);
       
       if (custRes.ok) setCustomers(await custRes.json());
@@ -65,38 +66,13 @@ export default function CustomersPage() {
 
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     const token = localStorage.getItem("token");
     
-    // Optimistic UI Update
-    setIsModalOpen(false);
     const method = editingCustomerId ? "PUT" : "POST";
     const url = editingCustomerId 
       ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers/${editingCustomerId}`
       : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers/`;
-      
-    if (editingCustomerId) {
-      setCustomers(prev => prev.map(c => c.id === editingCustomerId ? {
-        ...c, 
-        customer_name: formData.name, 
-        phone_number: formData.phone,
-        address: formData.location,
-        credit_limit: parseFloat(formData.pending_balance) || 0
-      } : c));
-    } else {
-      // Fake ID for optimistic insert
-      const fakeId = Math.random() * -10000;
-      setCustomers(prev => [{
-        id: fakeId,
-        customer_name: formData.name, 
-        phone_number: formData.phone,
-        address: formData.location,
-        credit_limit: parseFloat(formData.pending_balance) || 0,
-        outstanding_balance: 0
-      }, ...prev]);
-    }
-    
-    setEditingCustomerId(null);
-    setFormData({ name: "", phone: "", phone2: "", phone3: "", phone4: "", phone5: "", location: "", pending_balance: "" });
 
     try {
       const res = await fetch(url, {
@@ -117,22 +93,34 @@ export default function CustomersPage() {
           credit_limit: parseFloat(formData.pending_balance) || 0
         })
       });
-      if (res.ok && !editingCustomerId) {
-        // Re-fetch to get real ID
+      if (res.ok) {
+        setIsModalOpen(false);
+        setEditingCustomerId(null);
+        setFormData({ name: "", phone: "", phone2: "", phone3: "", phone4: "", phone5: "", location: "", pending_balance: "" });
         fetchCustomers();
+      } else {
+        alert("Failed to save customer.");
       }
-    } catch (error) {}
+    } catch (error) {
+      alert("Network Error.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDeleteCustomer = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this customer?")) return;
-    setCustomers(prev => prev.filter(c => c.id !== id));
     
     const token = localStorage.getItem("token");
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers/${id}`, {
-      method: "DELETE",
-      headers: { "Authorization": `Bearer ${token}` }
-    });
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers/${id}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) fetchCustomers();
+    } catch (err) {
+      alert("Network Error.");
+    }
   };
 
   const openPriceModal = async (customer: any) => {
@@ -344,7 +332,7 @@ export default function CustomersPage() {
               </div>
 
               <div className="pt-4 flex justify-end gap-3">
-                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={isSaving} className="bg-blue-600 hover:bg-blue-700 text-white">
