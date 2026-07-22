@@ -114,6 +114,13 @@ export default function OrdersPage() {
     setEditItems(newItems);
   };
 
+  const updateEditItemRate = (index: number, rateStr: string) => {
+    const rate = parseFloat(rateStr) || 0;
+    const newItems = [...editItems];
+    newItems[index] = { ...newItems[index], rate: rate, amount: newItems[index].quantity * rate };
+    setEditItems(newItems);
+  };
+
   const removeEditItem = (index: number) => {
     setEditItems(editItems.filter((_, i) => i !== index));
   };
@@ -126,6 +133,24 @@ export default function OrdersPage() {
     
     try {
       const token = localStorage.getItem("token");
+      
+      // 1. Sync custom prices for any items whose rate was changed
+      const pricePromises = editItems.map(async (item, idx) => {
+        const originalItem = editOrder.order_items[idx];
+        if (originalItem && item.rate !== originalItem.rate) {
+          return fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers/${editOrder.customer_id}/prices`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+            body: JSON.stringify({ product_id: item.product_id, custom_price: item.rate })
+          });
+        }
+      }).filter(Boolean);
+      
+      if (pricePromises.length > 0) {
+        await Promise.all(pricePromises);
+      }
+
+      // 2. Save Order Changes
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/orders/${currentId}/edit`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -453,7 +478,16 @@ export default function OrdersPage() {
                   <div key={index} className="flex items-center justify-between gap-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
                     <div className="flex-1">
                       <p className="font-semibold text-gray-900">{item.product?.product_name || 'Unknown Product'}</p>
-                      <p className="text-xs text-gray-500">Rate: ₹{item.rate}</p>
+                      <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
+                        <span>Rate: ₹</span>
+                        <input
+                          type="number"
+                          value={item.rate}
+                          onChange={(e) => updateEditItemRate(index, e.target.value)}
+                          className="w-16 h-6 bg-white border border-gray-200 px-1 rounded-sm text-black focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          min="0"
+                        />
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Input 

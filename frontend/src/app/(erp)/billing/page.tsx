@@ -104,6 +104,10 @@ export default function BillingPOS() {
     setItems(items.map(i => i.id === id ? { ...i, qty: Math.max(1, Number(qty)) } : i));
   };
 
+  const updateRate = (id: number, rate: number) => {
+    setItems(items.map(i => i.id === id ? { ...i, rateToUse: Number(rate) } : i));
+  };
+
   const currentBillAmount = items.reduce((acc, item) => acc + (item.rateToUse * item.qty), 0);
   const previousPending = isEditMode ? 0 : (selectedCustomer ? (selectedCustomer.current_balance || 0) : 0);
   const grandTotal = currentBillAmount + previousPending;
@@ -137,6 +141,24 @@ export default function BillingPOS() {
     setIsSaving(true);
 
     try {
+      // 1. Sync custom prices for any items whose rate differs from customerRates/default
+      const pricePromises = items.map(async (item) => {
+        const defaultRate = customerRates[item.id] !== undefined ? customerRates[item.id] : (item.default_selling_price || 0);
+        if (item.rateToUse !== defaultRate) {
+          // Send price update to backend
+          return fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers/${selectedCustomer.id}/prices`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+            body: JSON.stringify({ product_id: item.id, custom_price: item.rateToUse })
+          });
+        }
+      }).filter(Boolean);
+      
+      if (pricePromises.length > 0) {
+        await Promise.all(pricePromises);
+      }
+
+      // 2. Save the Bill
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
@@ -316,7 +338,17 @@ export default function BillingPOS() {
                     <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">{index + 1}</div>
                     <div className="flex-1">
                       <p className="font-semibold leading-none">{item.product_name}</p>
-                      <p className="text-xs text-muted-foreground mt-1">₹{item.rateToUse} / {item.unit}</p>
+                      <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                        <span>₹</span>
+                        <input
+                          type="number"
+                          value={item.rateToUse}
+                          onChange={(e) => updateRate(item.id, Number(e.target.value))}
+                          className="w-16 h-6 bg-background/50 border border-white/20 px-1 rounded-sm text-black focus:outline-none focus:ring-1 focus:ring-primary"
+                          min="0"
+                        />
+                        <span>/ {item.unit}</span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center">
