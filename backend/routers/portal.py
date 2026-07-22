@@ -13,10 +13,20 @@ router = APIRouter(
     dependencies=[Depends(auth.get_current_user)]
 )
 
+class PortalOrderItem(BaseModel):
+    product_id: int
+    quantity: float
+    rate: float
+    amount: float
+
 class PortalOrderCreate(BaseModel):
-    items: List[schemas.BillItemCreate]
+    items: List[PortalOrderItem]
     total_amount: float
-    language: Optional[str] = "english"
+    language: str = "english"
+
+class PortalOrderEditUpdate(BaseModel):
+    items: List[PortalOrderItem]
+    total_amount: float
 
 @router.get("/my-prices", response_model=List[dict])
 def get_my_prices(supabase: Client = Depends(get_supabase), current_user: schemas.UserResponse = Depends(auth.get_current_user)):
@@ -83,6 +93,46 @@ def place_order(
         supabase.table('order_items').insert(new_item).execute()
 
     return {"message": "Order placed successfully", "order_id": db_order['id']}
+
+@router.put("/orders/{order_id}/edit")
+def edit_portal_order(
+    order_id: int, 
+    update: PortalOrderEditUpdate, 
+    supabase: Client = Depends(get_supabase),
+    current_user: schemas.UserResponse = Depends(auth.get_current_user)
+):
+    # Verify customer owns this order and it's pending
+    customer_res = supabase.table('customers').select('*').eq('user_id', current_user.id).execute()
+    if not customer_res.data:
+        raise HTTPException(status_code=403, detail="You are not registered as a customer.")
+        
+    order_res = supabase.table('orders').select('*').eq('id', order_id).eq('customer_id', customer_res.data[0]['id']).execute()
+    if not order_res.data:
+        raise HTTPException(status_code=404, detail="Order not found")
+        
+    if order_res.data[0]['status'] != 'pending':
+        raise HTTPException(status_code=400, detail="Only pending orders can be edited.")
+
+    # 1. Update the total_amount in the orders table
+    supabase.table('orders').update({'total_amount': update.total_amount}).eq('id', order_id).execute()
+    
+    # 2. Delete existing order items
+    supabase.table('order_items').delete().eq('order_id', order_id).execute()
+    
+    # 3. Insert new items
+    if update.items:
+        new_items = []
+        for item in update.items:
+            new_items.append({
+                "order_id": order_id,
+                "product_id": item.product_id,
+                "quantity": float(item.quantity),
+                "rate": float(item.rate),
+                "amount": float(item.amount)
+            })
+        supabase.table('order_items').insert(new_items).execute()
+        
+    return {"message": "Order updated successfully"}
 
 @router.post("/orders/{order_id}/email")
 def trigger_order_email(

@@ -24,6 +24,12 @@ export default function CustomerPortal() {
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<number | null>(null);
 
+  // Edit Order Modal state
+  const [editOrder, setEditOrder] = useState<any>(null);
+  const [editItems, setEditItems] = useState<any[]>([]);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editProductSearch, setEditProductSearch] = useState("");
+
   useEffect(() => {
     const savedToken = localStorage.getItem("portal_token");
     if (savedToken) {
@@ -176,6 +182,61 @@ export default function CustomerPortal() {
       } else alert("Failed to place order.");
     } catch { alert("Network error."); }
     setIsPlacingOrder(false);
+  };
+
+  const openEditModal = (order: any) => {
+    setEditOrder(order);
+    setEditItems([...(order.order_items || [])]);
+    setEditProductSearch("");
+  };
+
+  const updateEditItem = (index: number, quantity: string) => {
+    const qty = parseFloat(quantity) || 0;
+    const newItems = [...editItems];
+    newItems[index] = { ...newItems[index], quantity: qty, amount: qty * newItems[index].rate };
+    setEditItems(newItems);
+  };
+
+  const removeEditItem = (index: number) => {
+    setEditItems(editItems.filter((_, i) => i !== index));
+  };
+
+  const addProductToEditOrder = (product: any) => {
+    const existingIndex = editItems.findIndex(i => i.product_id === product.product_id);
+    if (existingIndex >= 0) {
+      updateEditItem(existingIndex, String(editItems[existingIndex].quantity + 1));
+    } else {
+      setEditItems([...editItems, {
+        product_id: product.product_id,
+        product: { product_name: product.product_name, tamil_name: product.tamil_name },
+        quantity: 1,
+        rate: product.price,
+        amount: product.price
+      }]);
+    }
+    setEditProductSearch("");
+  };
+
+  const saveEditOrder = async () => {
+    if (!editOrder) return;
+    setIsSavingEdit(true);
+    const total = editItems.reduce((s, i) => s + i.amount, 0);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/portal/orders/${editOrder.id}/edit`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ items: editItems, total_amount: total })
+      });
+      if (res.ok) {
+        setEditOrder(null);
+        fetchMyOrders();
+      } else {
+        alert("Failed to save changes.");
+      }
+    } catch {
+      alert("Network error.");
+    }
+    setIsSavingEdit(false);
   };
 
   const navigate = (view: string) => {
@@ -448,7 +509,12 @@ export default function CustomerPortal() {
                     </div>
                     <div className="flex flex-col items-end gap-1.5">
                       <p className="font-bold text-gray-900">₹{order.total_amount}</p>
-                      {order.status === "pending" && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Pending</span>}
+                      {order.status === "pending" && (
+                        <div className="flex gap-2">
+                          <button onClick={() => openEditModal(order)} className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors">Edit</button>
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Pending</span>
+                        </div>
+                      )}
                       {order.status === "delivered" && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">Delivered</span>}
                       {order.status === "rejected" && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">Rejected</span>}
                     </div>
@@ -657,6 +723,99 @@ export default function CustomerPortal() {
             </div>
           </div>
         </>
+      )}
+
+      {/* ── EDIT ORDER MODAL ── */}
+      {editOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+            <div className="px-5 py-4 border-b flex items-center justify-between">
+              <h3 className="font-bold text-lg">Edit Order #{editOrder.id}</h3>
+              <button onClick={() => setEditOrder(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+            
+            <div className="p-5 overflow-y-auto flex-1 space-y-4">
+              {/* Product Search / Add */}
+              <div className="bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100/50 space-y-2">
+                <label className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">Add Product</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-600/50" />
+                  <input
+                    type="text"
+                    placeholder="Search catalog..." 
+                    value={editProductSearch}
+                    onChange={(e) => setEditProductSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-white border border-emerald-100 rounded-xl text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                  />
+                </div>
+                {editProductSearch.length > 0 && (
+                  <div className="bg-white rounded-xl shadow-sm border overflow-hidden max-h-40 overflow-y-auto divide-y mt-2">
+                    {products.filter(p => (p.product_name || "").toLowerCase().includes(editProductSearch.toLowerCase()) || (p.tamil_name || "").toLowerCase().includes(editProductSearch.toLowerCase())).map(p => (
+                      <div key={p.product_id} className="p-2.5 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                        <div>
+                          <p className="font-semibold text-sm text-gray-900">{p.product_name}</p>
+                          <p className="text-xs text-gray-500 font-medium">₹{p.price} /{p.unit}</p>
+                        </div>
+                        <button className="bg-emerald-600 text-white hover:bg-emerald-700 h-7 text-xs px-3 rounded-lg font-bold active:scale-95 transition-all" onClick={() => addProductToEditOrder(p)}>Add</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {editItems.length === 0 ? (
+                <p className="text-center text-gray-400 py-8 text-sm font-medium">No items left. This order will be empty.</p>
+              ) : (
+                <div className="space-y-2">
+                  {editItems.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between gap-3 bg-white p-3 rounded-2xl border shadow-sm">
+                      <div className="flex-1">
+                        <p className="font-bold text-gray-900 text-sm leading-tight">{item.product?.product_name || 'Unknown Product'}</p>
+                        <p className="text-xs text-gray-500 font-medium mt-1">₹{item.rate}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center bg-gray-50 border rounded-lg overflow-hidden">
+                          <button onClick={() => updateEditItem(index, String(item.quantity - 1))} className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-200 font-bold active:scale-95 transition-all">-</button>
+                          <input 
+                            type="number" 
+                            min="0"
+                            className="w-10 h-8 text-center bg-transparent border-none focus:outline-none text-sm font-bold p-0" 
+                            value={item.quantity}
+                            onChange={(e) => updateEditItem(index, e.target.value)}
+                          />
+                          <button onClick={() => updateEditItem(index, String(item.quantity + 1))} className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-200 font-bold active:scale-95 transition-all">+</button>
+                        </div>
+                        <span className="font-bold text-emerald-600 w-14 text-right text-sm">₹{item.amount.toFixed(0)}</span>
+                        <button onClick={() => removeEditItem(index)} className="p-2 text-red-400 hover:bg-red-50 hover:text-red-500 rounded-xl transition-all">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-4 bg-gray-50 flex items-center justify-between border-t shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
+              <div className="text-sm">
+                <span className="text-gray-500 font-semibold mr-1.5">Total:</span>
+                <span className="font-bold text-lg text-gray-900">₹{editItems.reduce((s, i) => s + i.amount, 0).toFixed(0)}</span>
+              </div>
+              <div className="flex gap-2">
+                <button className="px-4 py-2.5 text-gray-500 hover:bg-gray-200 font-bold rounded-xl text-sm transition-all active:scale-95" onClick={() => setEditOrder(null)}>Cancel</button>
+                <button 
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm shadow-md shadow-emerald-200 transition-all active:scale-95 disabled:opacity-70 flex items-center gap-2"
+                  onClick={saveEditOrder}
+                  disabled={isSavingEdit || editItems.length === 0}
+                >
+                  {isSavingEdit ? (
+                    <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Saving</>
+                  ) : "Save Changes"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

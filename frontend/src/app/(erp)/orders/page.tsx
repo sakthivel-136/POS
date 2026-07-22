@@ -46,6 +46,9 @@ export default function OrdersPage() {
   const [editOrder, setEditOrder] = useState<any>(null);
   const [editItems, setEditItems] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [products, setProducts] = useState<any[]>([]);
+  const [productSearch, setProductSearch] = useState("");
+  const [customerRates, setCustomerRates] = useState<any>({});
 
 
   const fetchOrders = useCallback(async (silent = false) => {
@@ -77,6 +80,18 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetchOrders(false);
+    // Fetch all products for adding to orders
+    const fetchProductsData = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/products`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) setProducts(await res.json());
+      } catch (e) { console.error(e); }
+    };
+    fetchProductsData();
+    
     // Poll every 30 seconds for new orders
     pollRef.current = setInterval(() => fetchOrders(true), 30000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
@@ -102,9 +117,41 @@ export default function OrdersPage() {
     } catch(e) {}
   };
 
-  const openEditModal = (order: any) => {
+  const openEditModal = async (order: any) => {
     setEditOrder(order);
     setEditItems([...(order.order_items || [])]);
+    setProductSearch("");
+    
+    // Fetch customer specific rates
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers/${order.customer_id}/prices`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const prices = await res.json();
+        const priceMap: any = {};
+        prices.forEach((p: any) => { priceMap[Number(p.product_id)] = p.custom_price; });
+        setCustomerRates(priceMap);
+      }
+    } catch (err) {}
+  };
+
+  const addProductToEditOrder = (product: any) => {
+    const existingIndex = editItems.findIndex(i => i.product_id === product.id);
+    if (existingIndex >= 0) {
+      updateEditItem(existingIndex, String(editItems[existingIndex].quantity + 1));
+    } else {
+      const rate = customerRates[product.id] !== undefined ? customerRates[product.id] : (product.default_selling_price || 0);
+      setEditItems([...editItems, {
+        product_id: product.id,
+        product: { product_name: product.product_name, tamil_name: product.tamil_name },
+        quantity: 1,
+        rate: rate,
+        amount: rate
+      }]);
+    }
+    setProductSearch("");
   };
 
   const updateEditItem = (index: number, quantity: string) => {
@@ -471,6 +518,33 @@ export default function OrdersPage() {
             </div>
             
             <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              {/* Product Search / Add */}
+              <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100/50 space-y-3">
+                <label className="text-sm font-semibold text-emerald-800">Add Product to Order</label>
+                <Input 
+                  placeholder="Search products..." 
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  className="bg-white border-emerald-100"
+                />
+                {productSearch.length > 0 && (
+                  <div className="bg-white rounded-xl shadow-sm border overflow-hidden max-h-48 overflow-y-auto divide-y">
+                    {products.filter(p => (p.product_name || "").toLowerCase().includes(productSearch.toLowerCase()) || (p.tamil_name || "").toLowerCase().includes(productSearch.toLowerCase())).map(p => (
+                      <div key={p.id} className="p-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                        <div>
+                          <p className="font-semibold text-sm">{p.product_name}</p>
+                          {p.tamil_name && <p className="text-xs text-muted-foreground">{p.tamil_name}</p>}
+                        </div>
+                        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 h-8 text-xs px-3" onClick={() => addProductToEditOrder(p)}>Add</Button>
+                      </div>
+                    ))}
+                    {products.filter(p => (p.product_name || "").toLowerCase().includes(productSearch.toLowerCase()) || (p.tamil_name || "").toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
+                      <div className="p-4 text-center text-sm text-gray-500">No products found</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {editItems.length === 0 ? (
                 <p className="text-center text-gray-500 py-4">No items left. This order will be empty.</p>
               ) : (

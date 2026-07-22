@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trash2, Search, CheckCircle2, Download as DownloadIcon, IndianRupee } from "lucide-react";
 import { generateBillPDF } from "@/utils/pdfGenerator";
@@ -15,8 +16,9 @@ export default function BillingPOS() {
 
   // Payment mode state
   const [paymentMode, setPaymentMode] = useState<"unpaid" | "partially_paid" | "paid">("unpaid");
-  const [receivedAmount, setReceivedAmount] = useState<number>(0);
+  const [receivedAmount, setReceivedAmount] = useState<number | "">("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isPaymentInMode, setIsPaymentInMode] = useState(false);
 
   const [products, setProducts] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -113,13 +115,14 @@ export default function BillingPOS() {
   const grandTotal = currentBillAmount + previousPending;
 
   // Compute actual paid/pending based on mode
-  const effectivePaid = paymentMode === "paid" ? grandTotal : paymentMode === "partially_paid" ? receivedAmount : 0;
+  const effectivePaid = paymentMode === "paid" ? grandTotal : paymentMode === "partially_paid" ? Number(receivedAmount) : 0;
   const effectivePending = Math.max(0, grandTotal - effectivePaid);
 
   const handleSaveBill = async () => {
     if (!selectedCustomer) return alert("Select a customer");
-    if (items.length === 0) return alert("Add items to bill");
-    if (paymentMode === "partially_paid" && (!receivedAmount || receivedAmount <= 0))
+    if (!isPaymentInMode && items.length === 0) return alert("Add items to bill");
+    if (isPaymentInMode && (!receivedAmount || Number(receivedAmount) <= 0)) return alert("Enter the payment amount");
+    if (paymentMode === "partially_paid" && (!receivedAmount || Number(receivedAmount) <= 0))
       return alert("Enter the amount paid for partial payment");
 
     const token = localStorage.getItem("token");
@@ -194,7 +197,7 @@ export default function BillingPOS() {
 
   const handleDownloadPDF = async () => {
     if (!selectedCustomer) return alert("Select a customer");
-    if (items.length === 0) return alert("Add items to bill");
+    if (!isPaymentInMode && items.length === 0) return alert("Add items to bill");
 
     // Save first to get real bill ID
     const savedData = await handleSaveBill();
@@ -272,9 +275,23 @@ export default function BillingPOS() {
                 </div>
               </div>
             )}
+            
+            <div className="mt-4 flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-xl">
+              <div>
+                <p className="font-semibold text-sm">Payment In Only</p>
+                <p className="text-xs text-muted-foreground">Record a payment without items</p>
+              </div>
+              <button 
+                onClick={() => { setIsPaymentInMode(!isPaymentInMode); setItems([]); setPaymentMode(isPaymentInMode ? "unpaid" : "partially_paid"); }}
+                className={cn("w-12 h-6 rounded-full transition-colors flex items-center px-1", isPaymentInMode ? "bg-emerald-500" : "bg-white/20")}
+              >
+                <div className={cn("w-4 h-4 bg-white rounded-full transition-transform", isPaymentInMode ? "translate-x-6" : "")} />
+              </button>
+            </div>
           </CardContent>
         </Card>
 
+        {!isPaymentInMode && (
         <Card className="glass-card flex-1 flex flex-col min-h-0">
           <CardHeader className="pb-4">
             <div className="relative">
@@ -311,6 +328,7 @@ export default function BillingPOS() {
             </div>
           </CardContent>
         </Card>
+        )}
       </div>
 
       {/* Right Panel: Invoice */}
