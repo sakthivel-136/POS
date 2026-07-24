@@ -13,7 +13,12 @@ app = FastAPI(title="Sakthi Spices ERP")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://bill.sakthi-dev.in", "http://bill.sakthi-dev.in"],
+    allow_origins=[
+        "http://localhost:3000", 
+        "https://bill.sakthi-dev.in", 
+        "http://bill.sakthi-dev.in",
+        "https://pos-azure-theta.vercel.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
