@@ -116,7 +116,14 @@ export default function BillingPOS() {
   const previousPending = isEditMode ? 0 : (selectedCustomer ? (selectedCustomer.current_balance || 0) : 0);
   const grandTotal = currentBillAmount + previousPending;
 
-  // Compute actual paid/pending based on mode
+  // The actual pending amount FOR THIS SPECIFIC BILL ONLY
+  const rawPaidAmount = paymentMode === "paid" ? currentBillAmount : paymentMode === "partially_paid" ? Number(receivedAmount) : 0;
+  const thisBillPending = Math.max(0, currentBillAmount - rawPaidAmount);
+  
+  // Status is based on whether they paid enough to cover the CURRENT bill
+  const thisBillStatus = rawPaidAmount >= currentBillAmount ? "paid" : rawPaidAmount > 0 ? "partially_paid" : "unpaid";
+  
+  // Total pending after payment (for UI display only)
   const effectivePaid = paymentMode === "paid" ? grandTotal : paymentMode === "partially_paid" ? Number(receivedAmount) : 0;
   const effectivePending = Math.max(0, grandTotal - effectivePaid);
 
@@ -132,9 +139,9 @@ export default function BillingPOS() {
     const payload = {
       customer_id: selectedCustomer.id,
       total_amount: currentBillAmount,
-      paid_amount: effectivePaid,
-      pending_amount: effectivePending,
-      status: paymentMode === "paid" ? "paid" : paymentMode === "partially_paid" ? "partially_paid" : "unpaid",
+      paid_amount: isPaymentInMode || paymentMode === "partially_paid" ? Number(receivedAmount) : rawPaidAmount,
+      pending_amount: isPaymentInMode ? 0 : thisBillPending,
+      status: isPaymentInMode ? "paid" : thisBillStatus,
       items: items.map(i => ({ product_id: i.id, quantity: i.qty, rate: i.rateToUse, amount: i.qty * i.rateToUse }))
     };
 
@@ -243,11 +250,11 @@ export default function BillingPOS() {
       id: billId,
       bill_date: new Date().toISOString(),
       total_amount: currentBillAmount,
-      paid_amount: effectivePaid,
-      pending_amount: effectivePending
+      paid_amount: isPaymentInMode ? Number(receivedAmount) : rawPaidAmount,
+      pending_amount: isPaymentInMode ? 0 : thisBillPending
     };
 
-    await generateBillPDF(billMock, selectedCustomer, items);
+    await generateBillPDF(billMock, selectedCustomer, items, previousPending);
   };
 
   const filteredProducts = products.filter(p =>

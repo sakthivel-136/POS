@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
-export async function generateBillPDF(bill: any, customer: any, items: any[], title = "INVOICE") {
+export async function generateBillPDF(bill: any, customer: any, items: any[], previousPending: number = 0, title = "INVOICE") {
   // Create a temporary div to render the bill
   const container = document.createElement("div");
   container.style.cssText = `
@@ -16,8 +16,15 @@ export async function generateBillPDF(bill: any, customer: any, items: any[], ti
   const total = Number(bill.total_amount || 0);
   const paid = Number(bill.paid_amount || 0);
   const pending = Number(bill.pending_amount || 0);
-  const grandTotal = paid + pending;
-  const previousPending = Math.max(0, grandTotal - total);
+  
+  // If previousPending wasn't passed directly (e.g. from bills history), infer from customer's current balance
+  // Since customer's current balance includes this bill's pending, we subtract it to find what it was before this bill.
+  const actualPreviousPending = previousPending > 0 
+    ? previousPending 
+    : Math.max(0, (Number(customer?.current_balance || 0) - pending));
+    
+  const grandTotal = total + actualPreviousPending;
+  const finalPending = grandTotal - paid;
 
   // Construct item rows
   const itemRows = items.map((item: any, index: number) => {
@@ -159,7 +166,7 @@ export async function generateBillPDF(bill: any, customer: any, items: any[], ti
         <div class="totals-left">
             <div style="font-size: 11px; color: #546e7a; margin-bottom: 4px;">Payment Summary:</div>
             <div style="font-size: 12px; color: #1a237e; font-weight: 600;">Paid: ₹ ${paid.toFixed(2)}</div>
-            <div style="font-size: 12px; color: #d32f2f; font-weight: 600;">Pending: ₹ ${pending.toFixed(2)}</div>
+            <div style="font-size: 12px; color: #d32f2f; font-weight: 600;">Pending: ₹ ${finalPending.toFixed(2)}</div>
         </div>
         <div class="totals-right">
             <table class="totals-table">
@@ -167,10 +174,10 @@ export async function generateBillPDF(bill: any, customer: any, items: any[], ti
                     <th>Current Bill Total</th>
                     <td>₹ ${total.toFixed(2)}</td>
                 </tr>
-                ${previousPending > 0.01 ? `
+                ${actualPreviousPending > 0.01 ? `
                 <tr>
                     <th>Previous Pending</th>
-                    <td>₹ ${previousPending.toFixed(2)}</td>
+                    <td>₹ ${actualPreviousPending.toFixed(2)}</td>
                 </tr>
                 ` : ""}
                 <tr class="grand-total-row">

@@ -85,7 +85,7 @@ export default function BillsPage() {
   }), [bills]);
 
   const openEditModal = (bill: any) => {
-    const grandTotal = parseFloat(bill.paid_amount || 0) + parseFloat(bill.pending_amount || 0);
+    const grandTotal = parseFloat(bill.total_amount || 0);
     setEditingBill({
       id: bill.id,
       total_amount: bill.total_amount,
