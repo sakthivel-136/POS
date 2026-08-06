@@ -14,6 +14,8 @@ import {
 import { Plus, Search, IndianRupee, Trash2, X, Tag } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { toast, Toaster } from "sonner";
 
 export default function CustomersPage() {
   const [search, setSearch] = useState("");
@@ -96,15 +98,16 @@ export default function CustomersPage() {
         })
       });
       if (res.ok) {
+        toast.success("Customer added successfully!");
         setIsModalOpen(false);
         setEditingCustomerId(null);
         setFormData({ name: "", phone: "", phone2: "", phone3: "", phone4: "", phone5: "", location: "", pending_balance: "" });
         fetchCustomers();
       } else {
-        alert("Failed to save customer.");
+        toast.error("Failed to add customer");
       }
-    } catch (error) {
-      alert("Network Error.");
+    } catch (err) {
+      toast.error("Network Error: Could not connect to the server.");
     } finally {
       setIsSaving(false);
     }
@@ -119,9 +122,14 @@ export default function CustomersPage() {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` }
       });
-      if (res.ok) fetchCustomers();
+      if (res.ok) {
+        toast.success("Customer deleted successfully");
+        fetchCustomers();
+      } else {
+        toast.error("Failed to delete customer");
+      }
     } catch (err) {
-      alert("Network Error.");
+      toast.error("Network Error");
     }
   };
 
@@ -150,7 +158,7 @@ export default function CustomersPage() {
 
   const handleReviewChanges = () => {
     if (Object.keys(pendingPriceChanges).length === 0) {
-      alert("No changes made.");
+      toast.error("No changes made.");
       return;
     }
     setIsPriceConfirmModalOpen(true);
@@ -180,11 +188,12 @@ export default function CustomersPage() {
       
       // Update local state
       setCustomPrices({ ...customPrices, ...pendingPriceChanges });
+      toast.success("Prices updated successfully!");
       setPendingPriceChanges({});
       setIsPriceConfirmModalOpen(false);
       setIsPriceModalOpen(false);
-    } catch (e) {
-      alert("Network Error while saving prices.");
+    } catch (err) {
+      toast.error("Network Error");
     } finally {
       setIsSaving(false);
     }
@@ -208,7 +217,13 @@ export default function CustomersPage() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="space-y-6 max-w-[1600px] mx-auto p-4 lg:p-6"
+    >
+      <Toaster position="top-right" richColors />
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Customers</h1>
         <Button onClick={() => { setEditingCustomerId(null); setFormData({ name: "", phone: "", phone2: "", phone3: "", phone4: "", phone5: "", location: "", pending_balance: "" }); setIsModalOpen(true); }} className="bg-primary hover:bg-primary/90">
@@ -509,6 +524,6 @@ export default function CustomersPage() {
         </div>
       )}
 
-    </div>
+    </motion.div>
   );
 }

@@ -14,6 +14,8 @@ import {
 import { Plus, Search, AlertTriangle, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { toast, Toaster } from "sonner";
 
 export default function ProductsPage() {
   const [search, setSearch] = useState("");
@@ -47,7 +49,7 @@ export default function ProductsPage() {
         const data = await res.json();
         setProducts(data);
       } else if (res.status === 403 || res.status === 401) {
-        alert("Account pending approval or unauthorized");
+        toast.error("Account pending approval or unauthorized");
         router.push("/");
       }
     } catch (err) {
@@ -96,13 +98,23 @@ export default function ProductsPage() {
         })
       });
       if (res.ok) {
+        toast.success("Product added successfully");
+        fetchProducts();
         setIsAddModalOpen(false);
-        fetchProducts(); // refresh for real ID
+        setNewProduct({
+          product_name: "",
+          tamil_name: "",
+          default_selling_price: "",
+          current_stock: "",
+          unit: "pcs",
+          minimum_stock: 10,
+          status: "active"
+        });
       } else {
-        alert("Failed to save product.");
+        toast.error("Failed to add product");
       }
     } catch (err) {
-      alert("Network Error.");
+      toast.error("Network Error");
     } finally {
       setIsSaving(false);
     }
@@ -117,9 +129,14 @@ export default function ProductsPage() {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` }
       });
-      if (res.ok) fetchProducts();
+      if (res.ok) {
+        toast.success("Product deleted successfully");
+        fetchProducts();
+      } else {
+        toast.error("Failed to delete product");
+      }
     } catch (err) {
-      alert("Network Error.");
+      toast.error("Network Error");
     }
   };
 
@@ -159,20 +176,27 @@ export default function ProductsPage() {
         })
       });
       if (res.ok) {
-        setIsEditModalOpen(false);
+        toast.success("Product updated successfully");
         fetchProducts();
+        setIsEditModalOpen(false);
       } else {
-        alert("Failed to save changes.");
+        toast.error("Failed to update product");
       }
     } catch (err) {
-      alert("Network Error.");
+      toast.error("Network Error");
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="space-y-6 max-w-[1600px] mx-auto p-4 lg:p-6"
+    >
+      <Toaster position="top-right" richColors />
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Products Inventory</h1>
         <Button onClick={handleAddProduct} className="bg-primary hover:bg-primary/90">
@@ -402,6 +426,6 @@ export default function ProductsPage() {
         </div>
       )}
 
-    </div>
+    </motion.div>
   );
 }

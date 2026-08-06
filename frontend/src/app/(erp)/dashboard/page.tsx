@@ -7,6 +7,7 @@ import {
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { IndianRupee, TrendingUp, ReceiptText, AlertCircle, Users } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -44,7 +45,12 @@ export default function DashboardPage() {
   }, [router]);
 
   return (
-    <div className="space-y-6">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="space-y-6 max-w-[1600px] mx-auto p-4 lg:p-6"
+    >
       
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -172,7 +178,6 @@ export default function DashboardPage() {
         </Card>
 
       </div>
-      
-    </div>
+    </motion.div>
   );
 }

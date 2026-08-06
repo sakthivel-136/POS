@@ -10,6 +10,8 @@ import { Receipt, Search, FileEdit, X, IndianRupee, CheckCircle, AlertCircle, Cl
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { generateBillPDF } from "@/utils/pdfGenerator";
+import { motion } from "framer-motion";
+import { toast, Toaster } from "sonner";
 
 const STATUS_TABS = [
   { id: "all", label: "All Bills", icon: Receipt },
@@ -69,11 +71,27 @@ export default function BillsPage() {
   useEffect(() => { fetchData(); }, [router]);
 
   const filteredBills = useMemo(() => {
-    let result = bills;
+    let result = [...bills]; // clone to avoid mutating original
     if (selectedCustomerId !== "all") result = result.filter(b => b.customer_id.toString() === selectedCustomerId);
     if (statusTab !== "all") result = result.filter(b => b.status === statusTab);
     if (search) result = result.filter(b => b.id.toString().includes(search));
-    return result;
+    
+    // Sort oldest first to calculate running total, then reverse back to newest first
+    result.sort((a, b) => new Date(a.bill_date).getTime() - new Date(b.bill_date).getTime());
+    
+    let runningPending: Record<string, number> = {}; // keep track of running pending per customer
+    result = result.map(b => {
+      const cid = b.customer_id.toString();
+      const previous = runningPending[cid] || 0;
+      const currentPending = parseFloat(b.pending_amount || 0);
+      const grandTotal = parseFloat(b.total_amount || 0) + previous;
+      
+      runningPending[cid] = previous + currentPending;
+      
+      return { ...b, calculated_grand_total: grandTotal, previous_pending: previous };
+    });
+    
+    return result.sort((a, b) => new Date(b.bill_date).getTime() - new Date(a.bill_date).getTime());
   }, [bills, selectedCustomerId, statusTab, search]);
 
   // Counts for tabs
@@ -134,7 +152,7 @@ export default function BillsPage() {
   };
 
   const handleEditItemsSubmit = async () => {
-    if (editingItems.length === 0) return alert("Bill must have at least one item.");
+    if (editingItems.length === 0) return toast.error("Bill must have at least one item.");
     
     // Calculate new values
     const newTotalAmount = editingItems.reduce((acc, item) => acc + (parseFloat(item.rateToUse) * parseFloat(item.qty)), 0);
@@ -187,12 +205,16 @@ export default function BillsPage() {
           status: newStatus,
           bill_items: newBillItems
         } : b));
+        
+        // Refetch everything to ensure ledger stays in perfect sync
+        await fetchData();
+        toast.success("Bill updated successfully!");
         setIsEditItemsModalOpen(false);
       } else {
-        alert("Warning: Failed to save changes to the server. Please try again.");
+        toast.error("Failed to save changes to the server.");
       }
     } catch (err) {
-      alert("Network Error: Could not connect to the server.");
+      toast.error("Network Error: Could not connect to the server.");
     } finally {
       setIsSaving(false);
     }
@@ -220,12 +242,16 @@ export default function BillsPage() {
           paid_amount: parseFloat(editingBill.paid_amount),
           pending_amount: parseFloat(editingBill.pending_amount)
         } : b));
+        
+        // Refetch everything to ensure ledger stays in perfect sync
+        await fetchData();
+        toast.success("Payment saved and ledger updated!");
         setIsEditModalOpen(false);
       } else {
-        alert("Failed to save bill.");
+        toast.error("Failed to save bill.");
       }
     } catch (err) {
-      alert("Network Error: Could not connect to the server.");
+      toast.error("Network Error: Could not connect to the server.");
     } finally {
       setIsSaving(false);
     }
@@ -249,17 +275,17 @@ export default function BillsPage() {
       const prod = products.find(p => p.id === item.product_id);
       return {
         ...item,
-        product_name: prod ? prod.product_name : `Product ${item.product_id}`,
-        tamil_name: prod ? prod.tamil_name : "",
+        product_name: prod?.product_name || `Product ${item.product_id}`,
+        tamil_name: prod?.tamil_name
       };
     });
     
-    await generateBillPDF(bill, customer, enrichedItems);
+    await generateBillPDF(bill, customer, enrichedItems, bill.previous_pending);
   };
 
   const shareToWhatsApp = (bill: any, customer: any) => {
     if (!customer || !customer.phone_number) {
-      alert("Customer phone number not available.");
+      toast.error("Customer phone number not available.");
       return;
     }
     const phone = customer.phone_number.replace(/\D/g, "");
@@ -272,7 +298,13 @@ export default function BillsPage() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="p-6 max-w-[1600px] mx-auto space-y-6"
+    >
+      <Toaster position="top-right" richColors />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3"><Receipt className="w-8 h-8 text-primary" /> Bills History</h1>
@@ -359,28 +391,31 @@ export default function BillsPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-gray-100 hover:bg-transparent">
-                <TableHead>Bill #</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Paid</TableHead>
-                <TableHead className="text-right">Pending</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                  <TableHead className="font-semibold">Bill #</TableHead>
+                  <TableHead className="font-semibold w-24">Date</TableHead>
+                  <TableHead className="font-semibold">Customer</TableHead>
+                  <TableHead className="font-semibold text-right">Bill Total</TableHead>
+                  <TableHead className="font-semibold text-right">Grand Total</TableHead>
+                  <TableHead className="font-semibold text-right">Paid</TableHead>
+                  <TableHead className="font-semibold text-right">Pending</TableHead>
+                  <TableHead className="font-semibold text-center">Status</TableHead>
+                  <TableHead className="font-semibold text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredBills.map((bill) => {
                 const customer = customers.find(c => c.id === bill.customer_id);
+                const customerName = customer ? customer.customer_name : `ID: ${bill.customer_id}`;
                 return (
                   <TableRow key={bill.id} className="border-gray-100 hover:bg-gray-50 transition-colors">
-                    <TableCell className="font-bold text-gray-900">#{bill.id}</TableCell>
-                    <TableCell className="text-gray-500 text-sm">{new Date(bill.bill_date).toLocaleDateString("en-IN")}</TableCell>
-                    <TableCell className="font-medium">{customer ? customer.customer_name : `ID: ${bill.customer_id}`}</TableCell>
-                    <TableCell className="text-right font-semibold">₹{bill.total_amount}</TableCell>
-                    <TableCell className="text-right text-emerald-600 font-semibold">₹{bill.paid_amount || "0"}</TableCell>
-                    <TableCell className="text-right text-red-500 font-semibold">₹{bill.pending_amount}</TableCell>
-                    <TableCell>
+                    <TableCell className="font-medium text-gray-900">#{bill.id}</TableCell>
+                    <TableCell className="text-gray-500 text-sm">{new Date(bill.bill_date).toLocaleDateString("en-GB")}</TableCell>
+                    <TableCell className="font-medium">{customerName}</TableCell>
+                    <TableCell className="text-right font-semibold">₹{Number(bill.total_amount).toFixed(0)}</TableCell>
+                    <TableCell className="text-right font-bold text-primary">₹{Number(bill.calculated_grand_total).toFixed(0)}</TableCell>
+                    <TableCell className="text-right text-emerald-600 font-semibold">₹{Number(bill.paid_amount || 0).toFixed(0)}</TableCell>
+                    <TableCell className="text-right text-red-500 font-semibold">₹{Number(bill.pending_amount || 0).toFixed(0)}</TableCell>
+                    <TableCell className="text-center">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${statusStyle[bill.status] || "bg-gray-100 text-gray-700"}`}>
                         {statusLabel[bill.status] || bill.status}
                       </span>
@@ -401,7 +436,7 @@ export default function BillsPage() {
               })}
               {filteredBills.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
                     No bills found for this filter.
                   </TableCell>
                 </TableRow>
@@ -490,7 +525,11 @@ export default function BillsPage() {
       {/* Edit Bill Items Modal */}
       {isEditItemsModalOpen && itemsBill && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden duration-200 flex flex-col max-h-[90vh]"
+          >
             <div className="px-6 py-5 border-b flex justify-between items-center bg-gray-50 shrink-0">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Edit Items — Bill #{itemsBill.id}</h2>
@@ -607,10 +646,10 @@ export default function BillsPage() {
                 {isSaving ? "Saving..." : "Update Bill Items"}
               </Button>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
 
-    </div>
+    </motion.div>
   );
 }
