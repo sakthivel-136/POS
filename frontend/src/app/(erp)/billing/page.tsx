@@ -242,7 +242,7 @@ export default function BillingPOS() {
     const billMock = {
       id: billId,
       bill_date: new Date().toISOString(),
-      total_amount: grandTotal,
+      total_amount: currentBillAmount,
       paid_amount: effectivePaid,
       pending_amount: effectivePending
     };
