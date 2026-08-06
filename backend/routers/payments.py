@@ -53,6 +53,13 @@ def receive_payment(payment: schemas.PaymentCreate, supabase: Client = Depends(g
             }).eq('id', bill['id']).execute()
             remaining_payment = 0
 
+    # 3. Update customer credit limit
+    cust_res = supabase.table('customers').select('credit_limit').eq('id', payment.customer_id).execute()
+    if cust_res.data:
+        curr_limit = float(cust_res.data[0].get('credit_limit') or 0)
+        new_limit = curr_limit - float(payment.amount)
+        supabase.table('customers').update({'credit_limit': new_limit}).eq('id', payment.customer_id).execute()
+
     return db_payment
 
 @router.get("/{customer_id}/ledger", response_model=List[dict])

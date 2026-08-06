@@ -52,6 +52,28 @@ def create_bill(bill: schemas.BillCreate, supabase: Client = Depends(get_supabas
     # 3. Update customer's pending balance
     supabase.table('customers').update({'credit_limit': float(bill.pending_amount)}).eq('id', bill.customer_id).execute()
 
+    # 4. FIFO Payment Allocation for excess payment
+    excess_payment = float(bill.paid_amount) - float(bill.total_amount)
+    if excess_payment > 0:
+        bills_res = supabase.table('bills').select('*').eq('customer_id', bill.customer_id).in_('status', ['unpaid', 'partially_paid']).order('bill_date', desc=False).execute()
+        remaining_excess = excess_payment
+        for ub in bills_res.data:
+            if remaining_excess <= 0:
+                break
+            # Skip the newly created bill if it somehow appears (it shouldn't because its status should be 'paid')
+            if ub['id'] == db_bill['id']:
+                continue
+            
+            pending_amt = float(ub['pending_amount'])
+            paid_amt = float(ub.get('paid_amount', 0))
+            
+            if remaining_excess >= pending_amt:
+                remaining_excess -= pending_amt
+                supabase.table('bills').update({'paid_amount': paid_amt + pending_amt, 'pending_amount': 0, 'status': 'paid'}).eq('id', ub['id']).execute()
+            else:
+                supabase.table('bills').update({'paid_amount': paid_amt + remaining_excess, 'pending_amount': pending_amt - remaining_excess, 'status': 'partially_paid'}).eq('id', ub['id']).execute()
+                remaining_excess = 0
+
     return db_bill
 
 @router.get("/")
@@ -167,12 +189,32 @@ def update_full_bill(
             
     # 6. Update customer credit limit (difference in pending)
     pending_diff = float(bill_update.pending_amount) - float(old_bill.get('pending_amount', 0))
-    if pending_diff != 0:
-        c_id = old_bill.get('customer_id')
-        if c_id:
-            c_res = supabase.table('customers').select('credit_limit').eq('id', c_id).execute()
-            if c_res.data:
-                curr_limit = float(c_res.data[0].get('credit_limit') or 0)
-                supabase.table('customers').update({'credit_limit': curr_limit + pending_diff}).eq('id', c_id).execute()
-                
+    c_id = old_bill.get('customer_id')
+    if pending_diff != 0 and c_id:
+        c_res = supabase.table('customers').select('credit_limit').eq('id', c_id).execute()
+        if c_res.data:
+            curr_limit = float(c_res.data[0].get('credit_limit') or 0)
+            supabase.table('customers').update({'credit_limit': curr_limit + pending_diff}).eq('id', c_id).execute()
+
+    # 7. FIFO Payment Allocation for excess payment
+    excess_payment = float(bill_update.paid_amount) - float(bill_update.total_amount)
+    if excess_payment > 0 and c_id:
+        bills_res = supabase.table('bills').select('*').eq('customer_id', c_id).in_('status', ['unpaid', 'partially_paid']).order('bill_date', desc=False).execute()
+        remaining_excess = excess_payment
+        for ub in bills_res.data:
+            if remaining_excess <= 0:
+                break
+            if ub['id'] == bill_id:
+                continue
+            
+            pending_amt = float(ub['pending_amount'])
+            paid_amt = float(ub.get('paid_amount', 0))
+            
+            if remaining_excess >= pending_amt:
+                remaining_excess -= pending_amt
+                supabase.table('bills').update({'paid_amount': paid_amt + pending_amt, 'pending_amount': 0, 'status': 'paid'}).eq('id', ub['id']).execute()
+            else:
+                supabase.table('bills').update({'paid_amount': paid_amt + remaining_excess, 'pending_amount': pending_amt - remaining_excess, 'status': 'partially_paid'}).eq('id', ub['id']).execute()
+                remaining_excess = 0
+
     return db_bill

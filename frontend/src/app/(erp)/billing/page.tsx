@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trash2, Search, CheckCircle2, Download as DownloadIcon, IndianRupee } from "lucide-react";
 import { generateBillPDF } from "@/utils/pdfGenerator";
+import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function BillingPOS() {
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
@@ -137,9 +139,13 @@ export default function BillingPOS() {
     };
 
     const method = isEditMode ? "PUT" : "POST";
-    const url = isEditMode 
+    let url = isEditMode 
       ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing/${editBillId}/full`
       : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/billing/`;
+      
+    if (isPaymentInMode && !isEditMode) {
+      url = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/payments/`;
+    }
       
     setIsSaving(true);
 
@@ -161,22 +167,51 @@ export default function BillingPOS() {
         await Promise.all(pricePromises);
       }
 
-      // 2. Save the Bill
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify(payload)
-      });
+      // 2. Save the Bill or Payment
+      let res;
+      if (isPaymentInMode && !isEditMode) {
+        // Send to payments endpoint
+        res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify({
+            customer_id: selectedCustomer.id,
+            amount: Number(receivedAmount),
+            payment_mode: "cash",
+            notes: "Payment In"
+          })
+        });
+      } else {
+        res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify(payload)
+        });
+      }
+
       if (res.ok) {
         const data = await res.json();
         setSavedBillId(data.id || null);
+        toast.success(isPaymentInMode ? "Payment logged successfully!" : "Bill saved successfully!");
+        
+        // Re-fetch customers to instantly update balances
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/customers`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+          .then(r => r.json())
+          .then(custData => {
+            setCustomers(custData);
+            // We want to keep the selected customer, but update its balance!
+            if (selectedCustomer) {
+              const updatedCust = custData.find((c: any) => c.id === selectedCustomer.id);
+              if (updatedCust) setSelectedCustomer(updatedCust);
+            }
+          });
         
         // Reset only after success
         if (!isEditMode) {
           setItems([]);
           setPaymentMode("unpaid");
-          setReceivedAmount(0);
-          setSelectedCustomer(null);
+          setReceivedAmount("");
+          if (isPaymentInMode) setIsPaymentInMode(false);
         }
         
         if (isEditMode) {
@@ -184,11 +219,11 @@ export default function BillingPOS() {
         }
         return data;
       } else {
-        alert("Failed to save bill.");
+        toast.error("Failed to save transaction.");
         return null;
       }
     } catch (err) {
-      alert("Network Error.");
+      toast.error("Network Error.");
       return null;
     } finally {
       setIsSaving(false);
@@ -221,11 +256,16 @@ export default function BillingPOS() {
   );
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col lg:flex-row gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-
-      {/* Left Panel: Products & Customer */}
-      <div className="flex-1 flex flex-col gap-4 h-full print:hidden">
-        <Card className="glass-card flex-none">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="flex flex-col lg:flex-row h-[calc(100vh-theme(spacing.16))] gap-6 p-4 lg:p-6 w-full max-w-[1600px] mx-auto"
+    >
+      {/* Left Panel: Catalog & Search */}
+      <div className="flex-1 flex flex-col min-h-0 space-y-4">
+        {/* Top bar */}
+        <Card className="glass-card shrink-0">
           <CardHeader className="pb-4">
             <CardTitle>Customer Selection</CardTitle>
           </CardHeader>
@@ -288,47 +328,58 @@ export default function BillingPOS() {
                 <div className={cn("w-4 h-4 bg-white rounded-full transition-transform", isPaymentInMode ? "translate-x-6" : "")} />
               </button>
             </div>
+            
+            <AnimatePresence>
+              {!isPaymentInMode && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="flex-1 flex flex-col min-h-0"
+                >
+                  <Card className="glass-card flex-1 flex flex-col min-h-0 mt-4">
+                    <CardHeader className="pb-4">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <input
+                          type="text"
+                          placeholder="Search products..."
+                          className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 focus:ring-2 focus:ring-primary outline-none transition-all"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex-1 overflow-y-auto">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {filteredProducts.map(p => {
+                          const pId = Number(p.id);
+                          const rate = customerRates[pId] !== undefined ? customerRates[pId] : (p.default_selling_price || 0);
+                          return (
+                            <motion.button
+                              whileHover={{ scale: 1.02, y: -2 }}
+                              whileTap={{ scale: 0.98 }}
+                              key={p.id}
+                              onClick={() => addItem(p)}
+                              className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-primary/50 hover:bg-primary/5 transition-all text-left flex flex-col h-full"
+                            >
+                              <span className="font-semibold text-lg leading-tight">{p.product_name}</span>
+                              <span className="text-sm text-muted-foreground">{p.tamil_name}</span>
+                              <div className="mt-auto pt-4 flex justify-between items-center">
+                                <span className="text-primary font-bold">₹{rate}</span>
+                                <span className="text-xs px-2 py-1 bg-white/10 rounded-md">/{p.unit}</span>
+                              </div>
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </CardContent>
         </Card>
-
-        {!isPaymentInMode && (
-        <Card className="glass-card flex-1 flex flex-col min-h-0">
-          <CardHeader className="pb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search products..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 focus:ring-2 focus:ring-primary outline-none"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {filteredProducts.map(p => {
-                const pId = Number(p.id);
-                const rate = customerRates[pId] !== undefined ? customerRates[pId] : (p.default_selling_price || 0);
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => addItem(p)}
-                    className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-primary/50 hover:bg-primary/5 transition-all text-left flex flex-col h-full"
-                  >
-                    <span className="font-semibold text-lg leading-tight">{p.product_name}</span>
-                    <span className="text-sm text-muted-foreground">{p.tamil_name}</span>
-                    <div className="mt-auto pt-4 flex justify-between items-center">
-                      <span className="text-primary font-bold">₹{rate}</span>
-                      <span className="text-xs px-2 py-1 bg-white/10 rounded-md">/{p.unit}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-        )}
       </div>
 
       {/* Right Panel: Invoice */}
@@ -472,6 +523,6 @@ export default function BillingPOS() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </motion.div>
   );
 }

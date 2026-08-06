@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { ShoppingCart, LogOut, Package, CheckCircle2, ChevronRight, Store, Menu, LayoutDashboard, Receipt, X, Search, Trash2, IndianRupee, Plus, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function CustomerPortal() {
   const [token, setToken] = useState<string | null>(null);
@@ -56,16 +58,24 @@ export default function CustomerPortal() {
         localStorage.setItem("portal_token", data.access_token);
         setToken(data.access_token);
         fetchDashboard(data.access_token);
+        toast.success("Logged in successfully");
       } else {
-        if (data.detail === "Account pending admin approval")
+        if (data.detail === "Account pending admin approval") {
           setLoginError("Your account is pending admin approval. Please contact the store.");
-        else if (data.detail === "Account rejected")
+          toast.error("Account pending admin approval");
+        }
+        else if (data.detail === "Account rejected") {
           setLoginError("Your account was rejected. Please contact the store.");
-        else
+          toast.error("Account rejected");
+        }
+        else {
           setLoginError(data.detail || "Login failed. Check your phone number.");
+          toast.error("Login failed");
+        }
       }
     } catch {
       setLoginError("Network error. Please try again.");
+      toast.error("Network error");
     }
     setIsLoggingIn(false);
   };
@@ -154,34 +164,27 @@ export default function CustomerPortal() {
     setIsPlacingOrder(true);
     const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     try {
-      const payload: any = {
-        items: cart.map(i => ({ product_id: i.product_id, quantity: i.quantity, rate: i.price, amount: i.price * i.quantity })),
-        total_amount: totalAmount,
-        language: "english"
-      };
-
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/portal/orders`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload)
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ items: cart })
       });
       if (res.ok) {
         const data = await res.json();
+        setOrderSuccess(data.id);
         setCart([]);
         setCartOpen(false);
-        setOrderSuccess(data.order_id);
-        setCurrentView("my-orders");
-        setTimeout(() => setOrderSuccess(null), 5000);
-
-        // Fire and forget the email trigger (this runs in the background)
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/portal/orders/${data.order_id}/email`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` }
-        }).catch(err => console.error("Failed to trigger email", err));
-
-      } else alert("Failed to place order.");
-    } catch { alert("Network error."); }
-    setIsPlacingOrder(false);
+        fetchDashboard(token!); // Refresh pending orders count
+        fetchMyOrders();
+        toast.success(`Order #${data.id} placed successfully!`);
+      } else {
+        toast.error("Failed to place order.");
+      }
+    } catch (err) {
+      toast.error("Network Error.");
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   const openEditModal = (order: any) => {
@@ -224,19 +227,22 @@ export default function CustomerPortal() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/portal/orders/${editOrder.id}/edit`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ items: editItems, total_amount: total })
       });
       if (res.ok) {
+        toast.success("Order updated successfully!");
         setEditOrder(null);
+        fetchDashboard(token!);
         fetchMyOrders();
       } else {
-        alert("Failed to save changes.");
+        toast.error("Failed to update order.");
       }
-    } catch {
-      alert("Network error.");
+    } catch (err) {
+      toast.error("Network error.");
+    } finally {
+      setIsSavingEdit(false);
     }
-    setIsSavingEdit(false);
   };
 
   const navigate = (view: string) => {
@@ -248,20 +254,21 @@ export default function CustomerPortal() {
   // ─── LOGIN SCREEN ──────────────────────────────────────────────────────────
   if (!token) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-600 to-emerald-800 flex flex-col items-center justify-center p-5">
-        <div className="w-full max-w-sm">
-          {/* Logo */}
-          <div className="text-center mb-8">
-            <div className="w-20 h-20 bg-white/20 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-xl">
-              <Store className="w-10 h-10 text-white" />
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="bg-white max-w-md w-full p-8 rounded-3xl shadow-xl border border-gray-100"
+        >
+          <div className="flex justify-center mb-6">
+            <div className="w-16 h-16 bg-gray-50 rounded-2xl border flex items-center justify-center shadow-sm">
+              <Store className="w-8 h-8 text-gray-700" />
             </div>
-            <h1 className="text-3xl font-bold text-white">Sakthi Spices</h1>
-            <p className="text-emerald-100 mt-1">Customer Portal</p>
           </div>
-
-          {/* Card */}
-          <div className="bg-white rounded-3xl shadow-2xl p-8">
-            <form onSubmit={handleLogin} className="space-y-5">
+          <h2 className="text-2xl font-bold text-center text-gray-900 mb-2 tracking-tight">Sakthi Spices ERP</h2>
+          <p className="text-center text-gray-500 mb-8 text-sm">Sign in to your account</p>
+          <form onSubmit={handleLogin} className="space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Phone Number</label>
                 <input
@@ -273,7 +280,6 @@ export default function CustomerPortal() {
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
                 />
-                <p className="text-xs text-gray-400 mt-2 text-center">No password needed. Just enter your registered number.</p>
               </div>
 
               {loginError && (
@@ -295,8 +301,7 @@ export default function CustomerPortal() {
                 )}
               </button>
             </form>
-          </div>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -377,14 +382,21 @@ export default function CustomerPortal() {
       )}
 
       {/* ── PAGE CONTENT ── */}
-      <main className="flex-1 pb-40 overflow-auto">
-
-        {/* DASHBOARD */}
-        {currentView === "dashboard" && (
-          <div className="max-w-2xl mx-auto p-4 space-y-4 animate-in fade-in duration-300">
-            {dashboardData ? (
-              <>
-                <div className="bg-emerald-600 rounded-3xl p-6 text-white shadow-lg">
+      <main className="flex-1 flex flex-col min-h-0 relative h-screen">
+        <div className="flex-1 overflow-y-auto pb-24 lg:pb-0">
+          <AnimatePresence mode="wait">
+            <motion.div 
+              key={currentView}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="p-4 lg:p-8 max-w-5xl mx-auto space-y-6"
+            >
+              
+              {currentView === "dashboard" && dashboardData && (
+                <div className="space-y-6">
+                  <div className="bg-emerald-600 rounded-3xl p-6 text-white shadow-lg">
                   <p className="text-emerald-100 text-sm font-medium">Welcome back,</p>
                   <h2 className="text-2xl font-bold mt-0.5">{dashboardData.customer_name}</h2>
                   {dashboardData.shop_name && <p className="text-emerald-200 text-sm mt-1">{dashboardData.shop_name}</p>}
@@ -414,174 +426,71 @@ export default function CustomerPortal() {
                 >
                   <Receipt className="w-5 h-5 text-gray-500" /> View Previous Bills
                 </button>
-              </>
-            ) : (
-              <div className="flex justify-center items-center h-48">
-                {portalError ? (
-                  <div className="text-center px-6">
-                    <Store className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500 text-sm">{portalError}</p>
+              </div>
+            )}
+
+            {currentView === "bills" && (
+              <div className="max-w-2xl mx-auto space-y-3">
+                <h2 className="text-xl font-bold text-gray-900 px-1">Previous Bills</h2>
+                {bills.length === 0 ? (
+                  <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
+                    <Receipt className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                    <p className="text-gray-500 font-medium">No bills yet</p>
                   </div>
                 ) : (
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+                  bills.map(bill => (
+                    <div key={bill.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                      <div className="px-4 py-3 flex items-start justify-between border-b border-gray-100">
+                        <div>
+                          <p className="font-bold text-gray-900">Bill #{bill.id}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{new Date(bill.bill_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1.5">
+                          <p className="font-bold text-gray-900">₹{bill.total_amount}</p>
+                          {statusBadge(bill.status, bill.pending_amount)}
+                        </div>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
             )}
-          </div>
-        )}
 
-        {/* BILLS */}
-        {currentView === "bills" && (
-          <div className="max-w-2xl mx-auto p-4 space-y-3 animate-in fade-in duration-300">
-            <h2 className="text-xl font-bold text-gray-900 px-1">Previous Bills</h2>
-            {bills.length === 0 ? (
-              <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
-                <Receipt className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-                <p className="text-gray-500 font-medium">No bills yet</p>
-                <p className="text-gray-400 text-sm mt-1">Your purchase history will appear here</p>
-              </div>
-            ) : (
-              bills.map(bill => (
-                <div key={bill.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                  {/* Bill header */}
-                  <div className="px-4 py-3 flex items-start justify-between border-b border-gray-100">
-                    <div>
-                      <p className="font-bold text-gray-900">Bill #{bill.id}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {new Date(bill.bill_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5">
-                      <p className="font-bold text-gray-900">₹{bill.total_amount}</p>
-                      {statusBadge(bill.status, bill.pending_amount)}
-                    </div>
-                  </div>
-
-                  {/* Items */}
-                  <div className="px-4 py-2 divide-y divide-gray-50">
-                    {bill.bill_items?.map((item: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between py-2.5">
-                        <div>
-                          <p className="text-sm font-semibold text-gray-800">{item.product?.product_name || `Product #${item.product_id}`}</p>
-                          {item.product?.tamil_name && <p className="text-xs text-gray-400">{item.product.tamil_name}</p>}
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-bold text-gray-900">₹{item.amount}</p>
-                          <p className="text-xs text-gray-400">{item.quantity} × ₹{item.rate}</p>
-                        </div>
+            {currentView === "my-orders" && (
+              <div className="max-w-2xl mx-auto space-y-4">
+                <h2 className="text-xl font-bold text-gray-900 mb-4 px-1">My Orders</h2>
+                {myOrders.map(order => (
+                  <div key={order.id} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+                    <div className="px-4 py-3 flex items-start justify-between border-b border-gray-100">
+                      <div>
+                        <p className="font-bold text-gray-900">Order #{order.id}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{new Date(order.created_at).toLocaleDateString()}</p>
                       </div>
-                    ))}
-                  </div>
-
-                  {/* Paid/Pending footer */}
-                  {(Number(bill.paid_amount) > 0 || Number(bill.pending_amount) > 0) && (
-                    <div className="px-4 py-2.5 bg-gray-50 border-t flex justify-between text-sm">
-                      <span className="text-emerald-600 font-medium">Paid: ₹{bill.paid_amount || 0}</span>
-                      <span className={Number(bill.pending_amount) > 0 ? "text-red-500 font-semibold" : "text-emerald-600 font-medium"}>
-                        {Number(bill.pending_amount) > 0 ? `Pending: ₹${bill.pending_amount}` : "Cleared ✓"}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* MY ORDERS */}
-        {currentView === "my-orders" && (
-          <div className="p-4 max-w-2xl mx-auto space-y-4 animate-in fade-in duration-300">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 px-1">My Orders</h2>
-            {myOrders.length === 0 ? (
-              <div className="bg-white rounded-2xl p-8 text-center shadow-sm">
-                <ShoppingCart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500 font-medium">No previous orders found.</p>
-              </div>
-            ) : (
-              myOrders.map(order => (
-                <div key={order.id} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
-                  <div className="px-4 py-3 flex items-start justify-between border-b border-gray-100">
-                    <div>
-                      <p className="font-bold text-gray-900">Order #{order.id}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {new Date(order.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5">
-                      <p className="font-bold text-gray-900">₹{order.total_amount}</p>
-                      {order.status === "pending" && (
-                        <div className="flex gap-2">
-                          <button onClick={() => openEditModal(order)} className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors">Edit</button>
-                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Pending</span>
-                        </div>
-                      )}
-                      {order.status === "delivered" && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">Delivered</span>}
-                      {order.status === "rejected" && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">Rejected</span>}
-                    </div>
-                  </div>
-                  <div className="px-4 py-2 divide-y divide-gray-50 bg-gray-50">
-                    {order.order_items?.map((item: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between py-2.5">
-                        <div>
-                          <p className="text-sm font-semibold text-gray-800">{item.product?.product_name || `Product #${item.product_id}`}</p>
-                          {item.product?.tamil_name && <p className="text-xs text-gray-400">{item.product.tamil_name}</p>}
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-bold text-gray-900">₹{item.amount}</p>
-                          <p className="text-xs text-gray-400">{item.quantity} × ₹{item.rate}</p>
-                        </div>
+                      <div className="flex flex-col items-end gap-1.5">
+                        <p className="font-bold text-gray-900">₹{order.total_amount}</p>
+                        {order.status === "pending" && (
+                          <div className="flex gap-2">
+                            <button onClick={() => openEditModal(order)} className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors">Edit</button>
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Pending</span>
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* ORDER */}
-        {currentView === "order" && (
-          <div className="animate-in fade-in duration-300">
-            {/* Search bar — NOT sticky so top products are visible */}
-            <div className="bg-white border-b px-4 py-3 shadow-sm">
-              <div className="relative max-w-2xl mx-auto">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-emerald-400 focus:bg-white transition-all"
-                  value={productSearch}
-                  onChange={e => setProductSearch(e.target.value)}
-                />
+                ))}
               </div>
-            </div>
-
-            {/* Product grid */}
-            <div className="p-4 max-w-2xl mx-auto grid grid-cols-2 sm:grid-cols-3 gap-3">
+            )}
+              
+            {currentView === "order" && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {filteredProducts.map(p => {
                 const cartItem = cart.find(i => i.product_id === p.product_id);
                 const qty = cartItem?.quantity || 0;
                 return (
-                  <div
-                    key={p.product_id}
-                    className={cn(
-                      "bg-white rounded-2xl p-4 shadow-sm border-2 transition-all",
-                      qty > 0 ? "border-emerald-400 shadow-emerald-100" : "border-transparent"
-                    )}
-                  >
+                  <div key={p.product_id} className={cn("bg-white rounded-2xl p-4 shadow-sm border-2 transition-all", qty > 0 ? "border-emerald-400 shadow-emerald-100" : "border-transparent")}>
                     <p className="font-bold text-gray-900 leading-tight text-sm">{p.product_name}</p>
-                    {p.tamil_name && <p className="text-xs text-gray-400 mt-0.5 truncate">{p.tamil_name}</p>}
-                    <div className="flex items-end justify-between mt-3">
-                      <div>
-                        <p className="text-base font-bold text-emerald-600">₹{p.price}</p>
-                        <p className="text-xs text-gray-400">/{p.unit}</p>
-                      </div>
-                    </div>
                     {qty === 0 ? (
-                      <button
-                        onClick={() => updateCart(p, 1)}
-                        className="mt-3 w-full py-2 bg-slate-900 text-white text-sm font-semibold rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1"
-                      >
+                      <button onClick={() => updateCart(p, 1)} className="mt-3 w-full py-2 bg-slate-900 text-white text-sm font-semibold rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1">
                         <Plus className="w-3.5 h-3.5" /> Add
                       </button>
                     ) : (
@@ -594,9 +503,12 @@ export default function CustomerPortal() {
                   </div>
                 );
               })}
-            </div>
-          </div>
-        )}
+              </div>
+            )}
+              
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </main>
 
       {/* ── PLACE ORDER floating bar (above bottom nav) ── */}
