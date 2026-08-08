@@ -11,7 +11,7 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { Plus, Search, IndianRupee, Trash2, X, Tag } from "lucide-react";
+import { Plus, Search, IndianRupee, Trash2, X, Tag, FileText } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -271,6 +271,9 @@ export default function CustomersPage() {
                   <TableCell className="text-right space-x-2">
                     <Button onClick={() => openBillsModal(customer)} variant="outline" size="sm" className="bg-white/5 border-white/10 h-8 text-emerald-600 hover:text-emerald-700">
                       Bills
+                    </Button>
+                    <Button onClick={() => router.push(`/customers/${customer.id}/statement`)} variant="outline" size="sm" className="bg-white/5 border-white/10 h-8 text-purple-600 hover:text-purple-700">
+                      <FileText className="w-4 h-4 mr-1" /> Statement
                     </Button>
                     <Button onClick={() => openPriceModal(customer)} variant="outline" size="sm" className="bg-white/5 border-white/10 h-8 text-blue-600 hover:text-blue-700">
                       <Tag className="w-4 h-4 mr-1" /> Rates

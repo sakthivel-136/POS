@@ -167,7 +167,15 @@ export default function CustomerPortal() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/portal/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ items: cart })
+        body: JSON.stringify({ 
+          items: cart.map(item => ({
+            product_id: item.product_id,
+            quantity: item.quantity,
+            rate: item.price,
+            amount: item.price * item.quantity
+          })),
+          total_amount: totalAmount 
+        })
       });
       if (res.ok) {
         const data = await res.json();

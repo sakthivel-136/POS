@@ -279,7 +279,7 @@ export default function BillingPOS() {
           <CardContent>
             <div className="flex gap-4">
               <select
-                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 focus:ring-2 focus:ring-primary outline-none"
+                className="flex-1 bg-white border border-gray-200 text-gray-900 font-medium rounded-xl px-4 py-2 focus:ring-2 focus:ring-primary outline-none"
                 onChange={async (e) => {
                   const c = customers.find(c => c.id === Number(e.target.value));
                   setSelectedCustomer(c || null);
@@ -323,16 +323,16 @@ export default function BillingPOS() {
               </div>
             )}
             
-            <div className="mt-4 flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-xl">
+            <div className="mt-4 flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl">
               <div>
-                <p className="font-semibold text-sm">Payment In Only</p>
+                <p className="font-semibold text-sm text-gray-900">Payment In Only</p>
                 <p className="text-xs text-muted-foreground">Record a payment without items</p>
               </div>
               <button 
                 onClick={() => { setIsPaymentInMode(!isPaymentInMode); setItems([]); setPaymentMode(isPaymentInMode ? "unpaid" : "partially_paid"); }}
-                className={cn("w-12 h-6 rounded-full transition-colors flex items-center px-1", isPaymentInMode ? "bg-emerald-500" : "bg-white/20")}
+                className={cn("w-12 h-6 rounded-full transition-colors flex items-center px-1 shadow-inner", isPaymentInMode ? "bg-emerald-500" : "bg-gray-300")}
               >
-                <div className={cn("w-4 h-4 bg-white rounded-full transition-transform", isPaymentInMode ? "translate-x-6" : "")} />
+                <div className={cn("w-4 h-4 bg-white rounded-full transition-transform shadow-sm", isPaymentInMode ? "translate-x-6" : "")} />
               </button>
             </div>
             
