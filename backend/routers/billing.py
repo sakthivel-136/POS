@@ -16,8 +16,48 @@ router = APIRouter(
 def create_bill(bill: schemas.BillCreate, supabase: Client = Depends(get_supabase), current_user: schemas.UserResponse = Depends(auth.get_current_user)):
     # Note: Supabase REST API does not support multi-statement transactions natively. 
     # For production, this should be moved to a Supabase RPC (Postgres Function).
-    # 2. Create the bill header
+    # 1. SMART PAYMENT ALLOCATION
+    total_received = float(bill.paid_amount)
+    current_bill_total = float(bill.total_amount)
+    
+    # Fetch previous pending from customer
+    cust_res = supabase.table('customers').select('credit_limit').eq('id', bill.customer_id).execute()
+    previous_pending = float(cust_res.data[0].get('credit_limit') or 0) if cust_res.data else 0
+
+    new_bill_paid = 0
+    excess_payment = 0
+
+    # Smart exact match logic
+    if total_received == current_bill_total:
+        new_bill_paid = current_bill_total
+        excess_payment = 0
+    elif total_received == previous_pending and previous_pending > 0:
+        new_bill_paid = 0
+        excess_payment = total_received
+    elif total_received == (current_bill_total + previous_pending):
+        new_bill_paid = current_bill_total
+        excess_payment = previous_pending
+    else:
+        # Standard FIFO: oldest debt first (which means previous_pending first)
+        excess_payment = min(total_received, previous_pending)
+        new_bill_paid = min(total_received - excess_payment, current_bill_total)
+        # Any remaining is true overpayment, keep in excess to pay off anything else
+        if total_received - excess_payment > current_bill_total:
+             excess_payment += (total_received - excess_payment - current_bill_total)
+
+    new_bill_pending = current_bill_total - new_bill_paid
+    if new_bill_pending <= 0:
+        new_bill_status = "paid"
+    elif new_bill_pending < current_bill_total:
+        new_bill_status = "partially_paid"
+    else:
+        new_bill_status = "unpaid"
+
+    # 2. Create the bill header (Override with smart amounts)
     bill_data = bill.model_dump(exclude={'items'})
+    bill_data['paid_amount'] = new_bill_paid
+    bill_data['pending_amount'] = new_bill_pending
+    bill_data['status'] = new_bill_status
     bill_data['created_by'] = current_user.id
     
     bill_res = supabase.table('bills').insert(bill_data).execute()
@@ -50,17 +90,16 @@ def create_bill(bill: schemas.BillCreate, supabase: Client = Depends(get_supabas
         supabase.table('stock_transactions').insert(stock_txn).execute()
 
     # 3. Update customer's pending balance
-    supabase.table('customers').update({'credit_limit': float(bill.pending_amount)}).eq('id', bill.customer_id).execute()
+    new_total_pending = previous_pending + current_bill_total - total_received
+    supabase.table('customers').update({'credit_limit': new_total_pending}).eq('id', bill.customer_id).execute()
 
-    # 4. FIFO Payment Allocation for excess payment
-    excess_payment = float(bill.paid_amount) - float(bill.total_amount)
+    # 4. Apply excess payment to old bills
     if excess_payment > 0:
         bills_res = supabase.table('bills').select('*').eq('customer_id', bill.customer_id).in_('status', ['unpaid', 'partially_paid']).order('bill_date', desc=False).execute()
         remaining_excess = excess_payment
         for ub in bills_res.data:
             if remaining_excess <= 0:
                 break
-            # Skip the newly created bill if it somehow appears (it shouldn't because its status should be 'paid')
             if ub['id'] == db_bill['id']:
                 continue
             

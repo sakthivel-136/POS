@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Printer, ArrowLeft, Building2, Phone, MapPin } from "lucide-react";
+import { Printer, ArrowLeft, Building2, Phone, MapPin, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 export default function CustomerStatementPage() {
   const { id } = useParams();
@@ -13,6 +15,8 @@ export default function CustomerStatementPage() {
   const [customer, setCustomer] = useState<any>(null);
   const [bills, setBills] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const statementRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -64,8 +68,65 @@ export default function CustomerStatementPage() {
     fetchData();
   }, [id, router]);
 
-  const handlePrint = () => {
-    window.print();
+  const handleDownloadPDF = async () => {
+    if (!statementRef.current) return;
+    setIsGeneratingPDF(true);
+    
+    try {
+      const element = statementRef.current;
+      
+      // Temporarily modify styles for pure white clean PDF
+      const originalBorder = element.style.border;
+      const originalShadow = element.style.boxShadow;
+      const originalBg = element.style.backgroundColor;
+      
+      element.style.border = 'none';
+      element.style.boxShadow = 'none';
+      element.style.backgroundColor = 'white';
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false
+      });
+
+      // Restore styles
+      element.style.border = originalBorder;
+      element.style.boxShadow = originalShadow;
+      element.style.backgroundColor = originalBg;
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let y = 0;
+      let remaining = imgHeight;
+      let sourceY = 0;
+      const pageContentHeight = pdfHeight;
+
+      while (remaining > 0) {
+        const sliceHeight = Math.min(remaining, pageContentHeight);
+        pdf.addImage(imgData, "PNG", 0, y - sourceY, imgWidth, imgHeight, undefined, "FAST");
+        remaining -= sliceHeight;
+        sourceY += sliceHeight;
+        if (remaining > 0) {
+          pdf.addPage();
+          y = 0;
+        }
+      }
+
+      pdf.save(`Statement_${customer.customer_name}_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      console.error("Failed to generate PDF", err);
+      alert("Failed to generate PDF");
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   };
 
   if (loading) {
@@ -87,13 +148,14 @@ export default function CustomerStatementPage() {
         <Button variant="outline" onClick={() => router.back()} className="gap-2">
           <ArrowLeft className="w-4 h-4" /> Back to Customers
         </Button>
-        <Button onClick={handlePrint} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
-          <Printer className="w-4 h-4" /> Print Statement
+        <Button onClick={handleDownloadPDF} disabled={isGeneratingPDF} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md">
+          {isGeneratingPDF ? <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
+          {isGeneratingPDF ? "Generating PDF..." : "Download PDF"}
         </Button>
       </div>
 
       {/* Statement Document */}
-      <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-12 print:shadow-none print:border-none print:p-0">
+      <div ref={statementRef} className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-12 print:shadow-none print:border-none print:p-0">
         
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-8 mb-8 gap-6">
