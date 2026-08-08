@@ -5,8 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Printer, ArrowLeft, Building2, Phone, MapPin, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import { generateStatementPDF } from "@/utils/pdfGenerator";
 
 export default function CustomerStatementPage() {
   const { id } = useParams();
@@ -69,58 +68,13 @@ export default function CustomerStatementPage() {
   }, [id, router]);
 
   const handleDownloadPDF = async () => {
-    if (!statementRef.current) return;
     setIsGeneratingPDF(true);
-    
     try {
-      const element = statementRef.current;
+      const totalBilled = bills.reduce((acc, b) => acc + (b.debit || 0), 0);
+      const totalPaid = bills.reduce((acc, b) => acc + (b.credit || 0), 0);
+      const currentBalance = totalBilled - totalPaid;
       
-      // Temporarily modify styles for pure white clean PDF
-      const originalBorder = element.style.border;
-      const originalShadow = element.style.boxShadow;
-      const originalBg = element.style.backgroundColor;
-      
-      element.style.border = 'none';
-      element.style.boxShadow = 'none';
-      element.style.backgroundColor = 'white';
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        logging: false
-      });
-
-      // Restore styles
-      element.style.border = originalBorder;
-      element.style.boxShadow = originalShadow;
-      element.style.backgroundColor = originalBg;
-
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      let y = 0;
-      let remaining = imgHeight;
-      let sourceY = 0;
-      const pageContentHeight = pdfHeight;
-
-      while (remaining > 0) {
-        const sliceHeight = Math.min(remaining, pageContentHeight);
-        pdf.addImage(imgData, "PNG", 0, y - sourceY, imgWidth, imgHeight, undefined, "FAST");
-        remaining -= sliceHeight;
-        sourceY += sliceHeight;
-        if (remaining > 0) {
-          pdf.addPage();
-          y = 0;
-        }
-      }
-
-      pdf.save(`Statement_${customer.customer_name}_${new Date().toISOString().split('T')[0]}.pdf`);
+      await generateStatementPDF(customer, bills, totalBilled, totalPaid, currentBalance);
     } catch (err) {
       console.error("Failed to generate PDF", err);
       alert("Failed to generate PDF");

@@ -251,3 +251,139 @@ export async function generateBillPDF(bill: any, customer: any, items: any[], pr
     document.body.removeChild(container);
   }
 }
+
+export async function generateStatementPDF(customer: any, bills: any[], totalBilled: number, totalPaid: number, currentBalance: number) {
+  const container = document.createElement("div");
+  container.style.position = "absolute";
+  container.style.left = "-9999px";
+  container.style.top = "0";
+  container.style.width = "210mm"; // A4 width
+  container.style.backgroundColor = "#ffffff";
+  
+  const today = new Date().toLocaleDateString();
+
+  let rowsHtml = "";
+  bills.forEach((b: any, index: number) => {
+    rowsHtml += `
+      <tr style="border-bottom: 1px solid #eee;">
+        <td style="padding: 12px 8px; font-size: 14px; color: #333;">${new Date(b.bill_date).toLocaleDateString()}</td>
+        <td style="padding: 12px 8px; font-size: 14px; color: #333;">Bill #${b.id}</td>
+        <td style="padding: 12px 8px; font-size: 14px; color: #333; text-align: right;">₹${b.debit.toFixed(2)}</td>
+        <td style="padding: 12px 8px; font-size: 14px; color: #10b981; text-align: right;">₹${b.credit.toFixed(2)}</td>
+        <td style="padding: 12px 8px; font-size: 14px; font-weight: bold; color: #333; text-align: right;">₹${b.runningBalance.toFixed(2)}</td>
+      </tr>
+    `;
+  });
+
+  container.innerHTML = `
+    <style>
+      * { box-sizing: border-box; font-family: 'Arial', sans-serif; }
+      .statement-container { padding: 40px; background: white; }
+      .header { display: flex; justify-content: space-between; border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 30px; }
+      .title h1 { margin: 0; font-size: 28px; color: #111; }
+      .title p { margin: 5px 0 0 0; color: #666; font-size: 14px; }
+      .customer-details { text-align: right; font-size: 14px; color: #444; line-height: 1.6; }
+      .summary-cards { display: flex; gap: 20px; margin-bottom: 30px; }
+      .card { flex: 1; padding: 15px; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; }
+      .card-title { font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: bold; margin-bottom: 5px; }
+      .card-value { font-size: 24px; font-weight: bold; color: #0f172a; margin: 0; }
+      .card.danger { background: #fef2f2; border-color: #fecaca; }
+      .card.danger .card-value { color: #dc2626; }
+      .card.danger .card-title { color: #dc2626; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+      th { text-align: left; padding: 12px 8px; background: #f1f5f9; color: #475569; font-size: 13px; text-transform: uppercase; }
+      th.right { text-align: right; }
+      .footer { text-align: center; color: #94a3b8; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px; margin-top: 40px; }
+    </style>
+    <div class="statement-container">
+      <div class="header">
+        <div class="title">
+          <h1>Statement of Account</h1>
+          <p>Generated on ${today}</p>
+        </div>
+        <div class="customer-details">
+          <div style="font-size: 18px; font-weight: bold; color: #000;">${customer.shop_name || customer.customer_name}</div>
+          ${customer.phone ? `<div>📞 ${customer.phone}</div>` : ''}
+          ${customer.address ? `<div>📍 ${customer.address}</div>` : ''}
+        </div>
+      </div>
+      
+      <div class="summary-cards">
+        <div class="card">
+          <div class="card-title">Total Billed</div>
+          <p class="card-value">₹${totalBilled.toFixed(2)}</p>
+        </div>
+        <div class="card">
+          <div class="card-title">Total Paid</div>
+          <p class="card-value" style="color: #059669;">₹${totalPaid.toFixed(2)}</p>
+        </div>
+        <div class="card danger">
+          <div class="card-title">Current Balance Due</div>
+          <p class="card-value">₹${currentBalance.toFixed(2)}</p>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Ref / Bill #</th>
+            <th class="right">Amount (Debit)</th>
+            <th class="right">Paid (Credit)</th>
+            <th class="right">Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+
+      <div class="footer">
+        <p>*** End of Statement ***</p>
+        <p>If you have any questions about this statement, please contact us.</p>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(container);
+  
+  await document.fonts.ready;
+  await new Promise(r => setTimeout(r, 600));
+
+  try {
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      logging: false
+    });
+
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pdfWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    let y = 0;
+    let remaining = imgHeight;
+    let sourceY = 0;
+    const pageContentHeight = pdfHeight;
+
+    while (remaining > 0) {
+      const sliceHeight = Math.min(remaining, pageContentHeight);
+      pdf.addImage(imgData, "PNG", 0, y - sourceY, imgWidth, imgHeight, undefined, "FAST");
+      remaining -= sliceHeight;
+      sourceY += sliceHeight;
+      if (remaining > 0) {
+        pdf.addPage();
+        y = 0;
+      }
+    }
+
+    pdf.save(`Statement_${customer.customer_name}_${today.replace(/\//g, '-')}.pdf`);
+  } finally {
+    document.body.removeChild(container);
+  }
+}
+
