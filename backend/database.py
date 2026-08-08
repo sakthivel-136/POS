@@ -24,7 +24,5 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-supabase_client: Client = create_client(settings.supabase_url, settings.supabase_secret_key)
-
 def get_supabase():
-    return supabase_client
+    return create_client(settings.supabase_url, settings.supabase_secret_key)
