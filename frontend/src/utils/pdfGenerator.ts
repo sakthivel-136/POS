@@ -169,11 +169,11 @@ export async function generateBillPDF(bill: any, customer: any, items: any[], pr
             <div style="font-size: 12px; color: #d32f2f; font-weight: 600;">Pending: ₹ ${finalPending.toFixed(2)}</div>
             
             <div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #cfd8dc; font-size: 11px; color: #546e7a;">
-                <div style="margin-bottom: 4px;"><strong>Total Items:</strong> ${bill.items?.length || 0} | <strong>Total Qty:</strong> ${bill.items?.reduce((s: number, i: any) => s + (parseFloat(i.quantity) || 0), 0)}</div>
+                <div style="margin-bottom: 4px;"><strong>Total Items:</strong> ${items?.length || 0} | <strong>Total Qty:</strong> ${items?.reduce((s: number, i: any) => s + (parseFloat(i.quantity) || 0), 0)}</div>
                 <div style="font-weight: 600;">Breakdown by Rate:</div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin-top: 4px;">
                     ${Object.entries(
-                        (bill.items || []).reduce((acc: any, i: any) => {
+                        (items || []).reduce((acc: any, i: any) => {
                             const rate = parseFloat(i.rate) || 0;
                             acc[rate] = (acc[rate] || 0) + (parseFloat(i.quantity) || 0);
                             return acc;
