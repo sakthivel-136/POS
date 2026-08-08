@@ -114,30 +114,34 @@ def _send_order_email(customer_name: str, shop_name: str, order_id: int, items: 
             print("[EMAIL ERROR] RESEND_API_KEY is not set in environment variables.")
             return
             
-        # Resend free tier only allows sending to verified domains or registered email address
-        # Assuming the user verified their domain or sends to themselves
-        data = {
-            "from": "Sakthi Spices ERP <onboarding@resend.dev>",
-            "to": NOTIFY_EMAILS,
-            "subject": subject,
-            "html": html_body
-        }
-        
-        req = urllib.request.Request(
-            "https://api.resend.com/emails",
-            data=json.dumps(data).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {RESEND_API_KEY}",
-                "Content-Type": "application/json",
-                "User-Agent": "Mozilla/5.0"
-            },
-            method="POST"
-        )
-        
-        with urllib.request.urlopen(req, timeout=10) as response:
-            response.read()
-
-        print(f"[EMAIL] Order #{order_id} notification sent to {NOTIFY_EMAILS} via Resend")
+        # Resend free tier only allows sending to the registered email address. 
+        # If we send to multiple and one is not verified, the whole request fails with 403.
+        # We will send them individually so the verified one succeeds.
+        for email in NOTIFY_EMAILS:
+            try:
+                data = {
+                    "from": "Sakthi Spices ERP <onboarding@resend.dev>",
+                    "to": [email],
+                    "subject": subject,
+                    "html": html_body
+                }
+                
+                req = urllib.request.Request(
+                    "https://api.resend.com/emails",
+                    data=json.dumps(data).encode("utf-8"),
+                    headers={
+                        "Authorization": f"Bearer {RESEND_API_KEY}",
+                        "Content-Type": "application/json",
+                        "User-Agent": "Mozilla/5.0"
+                    },
+                    method="POST"
+                )
+                
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    response.read()
+                print(f"[EMAIL] Order #{order_id} notification sent to {email} via Resend")
+            except Exception as e:
+                print(f"[EMAIL WARNING] Resend blocked sending to {email} (likely not verified): {e}")
 
     except Exception as e:
         print(f"[EMAIL ERROR] Failed to send order notification: {e}")
