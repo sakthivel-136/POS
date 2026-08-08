@@ -88,8 +88,8 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 shadow-sm transform transition-transform duration-300 lg:relative lg:translate-x-0",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        "fixed inset-y-4 left-4 z-50 w-64 glass-panel rounded-3xl transform transition-transform duration-300 lg:relative lg:translate-x-0 lg:my-4 lg:ml-4 lg:mr-2",
+        sidebarOpen ? "translate-x-0" : "-translate-x-[120%]"
       )}>
         <div className="h-full flex flex-col p-6">
           <div className="flex items-center justify-between mb-8">

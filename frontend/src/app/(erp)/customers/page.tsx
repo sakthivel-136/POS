@@ -238,7 +238,7 @@ export default function CustomersPage() {
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input 
               placeholder="Search customers..." 
-              className="pl-8 bg-white/5 border-white/10"
+              className="pl-8 bg-white/50 border-gray-200 focus:bg-white transition-all"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -247,7 +247,7 @@ export default function CustomersPage() {
         <CardContent>
           <Table>
             <TableHeader>
-              <TableRow className="border-white/10 hover:bg-transparent">
+              <TableRow className="border-gray-100 hover:bg-transparent">
                 <TableHead>Name</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Contact</TableHead>
@@ -258,7 +258,7 @@ export default function CustomersPage() {
             </TableHeader>
             <TableBody>
               {customers.filter(c => c.customer_name.toLowerCase().includes(search.toLowerCase())).map((customer) => (
-                <TableRow key={customer.id} className="border-white/10 hover:bg-white/5 transition-colors">
+                <TableRow key={customer.id} className="border-gray-100 hover:bg-white/60 transition-colors">
                   <TableCell className="font-medium">{customer.customer_name}</TableCell>
                   <TableCell>{customer.address || "N/A"}</TableCell>
                   <TableCell>{customer.phone_number}</TableCell>
@@ -269,13 +269,13 @@ export default function CustomersPage() {
                     </span>
                   </TableCell>
                   <TableCell className="text-right space-x-2">
-                    <Button onClick={() => openBillsModal(customer)} variant="outline" size="sm" className="bg-white/5 border-white/10 h-8 text-emerald-600 hover:text-emerald-700">
+                    <Button onClick={() => openBillsModal(customer)} variant="outline" size="sm" className="bg-white/50 border-gray-200 h-8 text-emerald-600 hover:text-emerald-700 hover:bg-white">
                       Bills
                     </Button>
-                    <Button onClick={() => router.push(`/customers/${customer.id}/statement`)} variant="outline" size="sm" className="bg-white/5 border-white/10 h-8 text-purple-600 hover:text-purple-700">
+                    <Button onClick={() => router.push(`/customers/${customer.id}/statement`)} variant="outline" size="sm" className="bg-white/50 border-gray-200 h-8 text-purple-600 hover:text-purple-700 hover:bg-white">
                       <FileText className="w-4 h-4 mr-1" /> Statement
                     </Button>
-                    <Button onClick={() => openPriceModal(customer)} variant="outline" size="sm" className="bg-white/5 border-white/10 h-8 text-blue-600 hover:text-blue-700">
+                    <Button onClick={() => openPriceModal(customer)} variant="outline" size="sm" className="bg-white/50 border-gray-200 h-8 text-blue-600 hover:text-blue-700 hover:bg-white">
                       <Tag className="w-4 h-4 mr-1" /> Rates
                     </Button>
                     <Button onClick={() => {
@@ -291,7 +291,7 @@ export default function CustomersPage() {
                         pending_balance: (customer.current_balance || 0).toString()
                       });
                       setIsModalOpen(true);
-                    }} variant="outline" size="sm" className="bg-white/5 border-white/10 h-8">
+                    }} variant="outline" size="sm" className="bg-white/50 border-gray-200 h-8 hover:bg-white text-gray-700">
                       Edit
                     </Button>
                     <Button onClick={() => handleDeleteCustomer(customer.id)} variant="destructive" size="sm" className="h-8">

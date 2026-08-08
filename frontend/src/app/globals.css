@@ -109,19 +109,70 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-[#F3F4F6] text-[#1e293b] antialiased selection:bg-primary/20;
+    @apply bg-[#F4F4F5] text-[#1e293b] antialiased selection:bg-primary/20 relative min-h-screen overflow-x-hidden;
   }
+}
+
+/* Animated Mesh Gradient Background */
+@keyframes gradientOrbs {
+  0% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+@keyframes gradientOrbs2 {
+  0% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(-30px, 50px) scale(1.1); }
+  66% { transform: translate(20px, -20px) scale(0.9); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+.mesh-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-color: #f8fafc;
+  overflow: hidden;
+}
+.mesh-bg::before,
+.mesh-bg::after {
+  content: "";
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.4;
+}
+.mesh-bg::before {
+  background: #10b981; /* emerald */
+  top: -100px;
+  right: -100px;
+  animation: gradientOrbs 15s ease-in-out infinite;
+}
+.mesh-bg::after {
+  background: #6366f1; /* indigo */
+  bottom: -100px;
+  left: -100px;
+  animation: gradientOrbs2 20s ease-in-out infinite alternate;
 }
 
 /* Custom UI Classes */
 @layer utilities {
   .glass {
-    @apply bg-white border border-gray-200 shadow-sm;
+    @apply bg-white/60 backdrop-blur-xl border border-white/80 shadow-sm;
   }
   .dark .glass {
-    @apply bg-black/20 border border-white/10 shadow-2xl;
+    @apply bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl;
   }
   .glass-card {
-    @apply bg-white border border-gray-200 shadow-sm rounded-xl;
+    @apply bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl transition-all duration-300;
+  }
+  .glass-card:hover {
+    @apply bg-white/80 border-white shadow-[0_8px_30px_rgb(0,0,0,0.08)];
+  }
+  .glass-panel {
+    @apply bg-white/70 backdrop-blur-2xl border border-white/60 shadow-[0_4px_30px_rgb(0,0,0,0.03)];
   }
 }

@@ -63,7 +63,7 @@ export default function DashboardPage() {
       {/* KPI Cards (Light theme with left borders) */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         
-        <Card className="rounded-xl border border-gray-200 shadow-sm overflow-hidden relative">
+        <Card className="glass-card relative overflow-hidden group">
           <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600"></div>
           <CardContent className="p-5">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Today's Sales</p>
@@ -97,7 +97,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
         
-        <Card className="rounded-xl border border-gray-200 shadow-sm overflow-hidden relative">
+        <Card className="glass-card relative overflow-hidden group">
           <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"></div>
           <CardContent className="p-5">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Collections</p>
@@ -106,7 +106,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-xl border border-gray-200 shadow-sm overflow-hidden relative">
+        <Card className="glass-card relative overflow-hidden group">
           <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
           <CardContent className="p-5">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Pending</p>
@@ -115,7 +115,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-xl border border-gray-200 shadow-sm overflow-hidden relative">
+        <Card className="glass-card relative overflow-hidden group">
           <div className="absolute left-0 top-0 bottom-0 w-1 bg-gray-400"></div>
           <CardContent className="p-5">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Customers</p>
@@ -124,7 +124,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-xl border border-gray-200 shadow-sm overflow-hidden relative">
+        <Card className="glass-card relative overflow-hidden group">
           <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#8B5CF6]"></div>
           <CardContent className="p-5">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Low Stock</p>
@@ -133,7 +133,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-xl border border-gray-200 shadow-sm overflow-hidden relative">
+        <Card className="glass-card relative overflow-hidden group">
           <div className="absolute left-0 top-0 bottom-0 w-1 bg-teal-500"></div>
           <CardContent className="p-5">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Stock Value</p>
@@ -148,7 +148,7 @@ export default function DashboardPage() {
       <div className="grid gap-6 grid-cols-1">
         
         {/* Area Chart */}
-        <Card className="rounded-xl border border-gray-200 shadow-sm">
+        <Card className="glass-card">
           <CardHeader>
             <CardTitle className="text-sm font-semibold text-gray-700">Sales vs Collections Overview</CardTitle>
           </CardHeader>
