@@ -625,8 +625,32 @@ export default function BillsPage() {
               </div>
 
               {/* Totals Summary */}
-              <div className="flex justify-end">
-                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm min-w-[250px] space-y-2">
+              <div className="flex flex-col md:flex-row justify-between gap-4 mt-2">
+                
+                {/* Breakdown */}
+                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex-1">
+                  <div className="text-sm font-semibold text-gray-700 mb-2 border-b pb-2 flex justify-between">
+                    <span>Rate Breakdown</span>
+                    <span className="text-gray-500 font-normal">Total Items: {editingItems.length} | Qty: {editingItems.reduce((acc, i) => acc + (parseFloat(i.qty) || 0), 0)}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    {Object.entries(
+                      editingItems.reduce((acc: any, item: any) => {
+                        const rate = parseFloat(item.rateToUse) || 0;
+                        acc[rate] = (acc[rate] || 0) + (parseFloat(item.qty) || 0);
+                        return acc;
+                      }, {})
+                    ).map(([rate, qty]) => (
+                      <div key={rate} className="flex justify-between text-gray-600 bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                        <span>₹{rate}</span>
+                        <span className="font-semibold text-gray-900">{qty as number} qty</span>
+                      </div>
+                    ))}
+                    {editingItems.length === 0 && <div className="text-gray-400 italic col-span-2">No items</div>}
+                  </div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm min-w-[250px] space-y-2 shrink-0 h-fit">
                   <div className="flex justify-between text-sm text-gray-600">
                     <span>New Total:</span>
                     <span className="font-bold text-gray-900">₹{editingItems.reduce((acc, item) => acc + (item.rateToUse * item.qty), 0).toFixed(0)}</span>

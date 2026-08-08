@@ -179,12 +179,21 @@ export default function CustomerPortal() {
       });
       if (res.ok) {
         const data = await res.json();
-        setOrderSuccess(data.id);
+        
+        // Trigger Email Notification (non-blocking)
+        if (data.order_id) {
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/portal/orders/${data.order_id}/email`, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${token}` }
+          }).catch(console.error);
+        }
+
+        setOrderSuccess(data.order_id);
         setCart([]);
         setCartOpen(false);
         fetchDashboard(token!); // Refresh pending orders count
         fetchMyOrders();
-        toast.success(`Order #${data.id} placed successfully!`);
+        toast.success(`Order #${data.order_id} placed successfully!`);
       } else {
         toast.error("Failed to place order.");
       }
@@ -390,8 +399,8 @@ export default function CustomerPortal() {
       )}
 
       {/* ── PAGE CONTENT ── */}
-      <main className="flex-1 flex flex-col min-h-0 relative h-screen">
-        <div className="flex-1 overflow-y-auto pb-24 lg:pb-0">
+      <main className="flex-1 flex flex-col min-h-0 relative min-h-[100dvh]">
+        <div className="flex-1 overflow-y-auto pb-24 lg:pb-0 pt-4">
           <AnimatePresence mode="wait">
             <motion.div 
               key={currentView}

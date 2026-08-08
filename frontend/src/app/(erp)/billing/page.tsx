@@ -449,7 +449,31 @@ export default function BillingPOS() {
             </div>
 
             {/* Billing Summary */}
-            <div className="p-5 bg-white/5 border-t border-white/10 space-y-4 text-black">
+            <div className="p-5 bg-white border-t border-gray-100 space-y-4 text-black">
+              
+              {/* Breakdown */}
+              <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200">
+                  <span className="text-sm font-bold text-gray-700">Rate Breakdown</span>
+                  <span className="text-xs text-gray-500 font-medium">Total Items: {items.length} | Qty: {items.reduce((acc, i) => acc + (parseFloat(i.qty as any) || 0), 0)}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  {Object.entries(
+                    items.reduce((acc: any, item: any) => {
+                      const rate = parseFloat(item.rateToUse) || 0;
+                      acc[rate] = (acc[rate] || 0) + (parseFloat(item.qty) || 0);
+                      return acc;
+                    }, {})
+                  ).map(([rate, qty]) => (
+                    <div key={rate} className="flex justify-between">
+                      <span className="text-gray-500">₹{rate}</span>
+                      <span className="font-bold text-gray-800">{qty as number} qty</span>
+                    </div>
+                  ))}
+                  {items.length === 0 && <span className="text-gray-400 italic">No items added</span>}
+                </div>
+              </div>
+
               <div className="flex justify-between text-muted-foreground text-sm">
                 <span>Current Bill Amount</span>
                 <span className="font-medium">₹{currentBillAmount}</span>
