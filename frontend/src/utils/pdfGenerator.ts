@@ -37,7 +37,7 @@ export async function generateBillPDF(bill: any, customer: any, items: any[], pr
     return `
       <tr style="${isReturn ? 'background-color: #ffebee;' : ''}">
         <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; text-align: center; ${isReturn ? 'color: #d32f2f;' : ''}">${index + 1}</td>
-        <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; ${isReturn ? 'color: #d32f2f; font-weight: 600;' : ''}">${isReturn ? '(Discount) ' : ''}${tamilName}</td>
+        <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; ${isReturn ? 'color: #d32f2f; font-weight: 600;' : ''}">${isReturn ? '(RETURN) ' : ''}${tamilName}</td>
         <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; text-align: center; ${isReturn ? 'color: #d32f2f;' : ''}">${isReturn ? '-' : ''}${qtyAbs} &times; ${Number(item.rate || item.rateToUse).toFixed(2)}</td>
         <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; text-align: right; font-weight: 600; ${isReturn ? 'color: #d32f2f;' : ''}">${amountStr}</td>
       </tr>
