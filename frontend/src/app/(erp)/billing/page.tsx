@@ -98,7 +98,7 @@ export default function BillingPOS() {
     if (existing) {
       setItems(items.map(i => i.id === product.id ? { ...i, qty: i.qty + 1 } : i));
     } else {
-      setItems([...items, { ...product, qty: 1, rateToUse }]);
+      setItems([...items, { ...product, qty: 1, rateToUse, isReturn: false }]);
     }
   };
 
@@ -108,11 +108,15 @@ export default function BillingPOS() {
     setItems(items.map(i => i.id === id ? { ...i, qty: Math.max(1, Number(qty)) } : i));
   };
 
+  const toggleReturn = (id: number) => {
+    setItems(items.map(i => i.id === id ? { ...i, isReturn: !i.isReturn } : i));
+  };
+
   const updateRate = (id: number, rate: number) => {
     setItems(items.map(i => i.id === id ? { ...i, rateToUse: Number(rate) } : i));
   };
 
-  const currentBillAmount = items.reduce((acc, item) => acc + (item.rateToUse * item.qty), 0);
+  const currentBillAmount = items.reduce((acc, item) => acc + ((item.isReturn ? -1 : 1) * item.rateToUse * item.qty), 0);
   const previousPending = isEditMode ? 0 : (selectedCustomer ? (selectedCustomer.current_balance || 0) : 0);
   const grandTotal = currentBillAmount + previousPending;
 
@@ -142,7 +146,12 @@ export default function BillingPOS() {
       paid_amount: isPaymentInMode || paymentMode === "partially_paid" ? Number(receivedAmount) : rawPaidAmount,
       pending_amount: isPaymentInMode ? 0 : thisBillPending,
       status: isPaymentInMode ? "paid" : thisBillStatus,
-      items: items.map(i => ({ product_id: i.id, quantity: i.qty, rate: i.rateToUse, amount: i.qty * i.rateToUse }))
+      items: items.map(i => ({ 
+        product_id: i.id, 
+        quantity: i.isReturn ? -i.qty : i.qty, 
+        rate: i.rateToUse, 
+        amount: (i.isReturn ? -1 : 1) * i.qty * i.rateToUse 
+      }))
     };
 
     const method = isEditMode ? "PUT" : "POST";
@@ -267,7 +276,7 @@ export default function BillingPOS() {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="flex flex-col lg:flex-row h-[calc(100vh-theme(spacing.16))] gap-6 p-4 lg:p-6 w-full max-w-[1600px] mx-auto"
+      className="flex flex-col lg:flex-row h-auto min-h-screen lg:min-h-0 lg:h-[calc(100vh-theme(spacing.16))] gap-6 p-4 lg:p-6 w-full max-w-[1600px] mx-auto"
     >
       {/* Left Panel: Catalog & Search */}
       <div className="flex-1 flex flex-col min-h-0 space-y-4">
@@ -390,7 +399,7 @@ export default function BillingPOS() {
       </div>
 
       {/* Right Panel: Invoice */}
-      <div className="w-full lg:w-[460px] flex flex-col h-full">
+      <div className="w-full lg:w-[460px] flex flex-col h-full min-h-[600px] lg:min-h-0">
         <Card className="glass-card flex-1 flex flex-col min-h-0 border-primary/20 bg-white">
           <CardHeader className="border-b border-gray-100 pb-4 bg-gray-50 text-black">
             <CardTitle className="flex justify-between items-center">
@@ -438,7 +447,15 @@ export default function BillingPOS() {
                         />
                         <button onClick={() => updateQty(item.id, item.qty + 1)} className="w-8 h-8 bg-white/10 hover:bg-white/20 rounded-r-md flex items-center justify-center border border-white/10 text-lg font-bold">+</button>
                       </div>
-                      <div className="w-16 text-right font-bold">₹{item.rateToUse * item.qty}</div>
+                      <button 
+                        onClick={() => toggleReturn(item.id)} 
+                        className={cn("px-2 py-1 text-[10px] font-bold rounded-md ml-1 uppercase transition-colors", item.isReturn ? "bg-red-500/20 text-red-600 border border-red-500/30" : "bg-gray-100 text-gray-400 border border-transparent")}
+                      >
+                        {item.isReturn ? "Return" : "Sale"}
+                      </button>
+                      <div className={cn("w-16 text-right font-bold", item.isReturn ? "text-red-500" : "")}>
+                        {item.isReturn ? "- " : ""}₹{item.rateToUse * item.qty}
+                      </div>
                       <button onClick={() => removeItem(item.id)} className="p-1 hover:bg-destructive/20 text-destructive rounded-md transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -461,13 +478,13 @@ export default function BillingPOS() {
                   {Object.entries(
                     items.reduce((acc: any, item: any) => {
                       const rate = parseFloat(item.rateToUse) || 0;
-                      acc[rate] = (acc[rate] || 0) + (parseFloat(item.qty) || 0);
+                      acc[rate] = (acc[rate] || 0) + ((item.isReturn ? -1 : 1) * (parseFloat(item.qty) || 0));
                       return acc;
                     }, {})
                   ).map(([rate, qty]) => (
                     <div key={rate} className="flex justify-between">
                       <span className="text-gray-500">₹{rate}</span>
-                      <span className="font-bold text-gray-800">{qty as number} qty</span>
+                      <span className={cn("font-bold", (qty as number) < 0 ? "text-red-600" : "text-gray-800")}>{qty as number} qty</span>
                     </div>
                   ))}
                   {items.length === 0 && <span className="text-gray-400 italic">No items added</span>}
@@ -483,40 +500,42 @@ export default function BillingPOS() {
                 <span>+ ₹{previousPending}</span>
               </div>
               <div className="flex justify-between font-bold text-xl py-2 border-y border-white/10">
-                <span>Grand Total</span>
+                <span>{isPaymentInMode ? "Balance Before Payment" : "Grand Total"}</span>
                 <span>₹{grandTotal}</span>
               </div>
 
               {/* Payment Mode */}
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-gray-700">Payment Status</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: "unpaid", label: "Not Paid" },
-                    { id: "partially_paid", label: "Partial" },
-                    { id: "paid", label: "Full Paid" },
-                  ].map(opt => (
-                    <button
-                      key={opt.id}
-                      onClick={() => { setPaymentMode(opt.id as any); setReceivedAmount(0); }}
-                      className={`py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
-                        paymentMode === opt.id
-                          ? opt.id === "unpaid" ? "border-red-400 bg-red-50 text-red-700"
-                          : opt.id === "partially_paid" ? "border-amber-400 bg-amber-50 text-amber-700"
-                          : "border-emerald-400 bg-emerald-50 text-emerald-700"
-                          : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+              {!isPaymentInMode && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-gray-700">Payment Status</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: "unpaid", label: "Not Paid" },
+                      { id: "partially_paid", label: "Partial" },
+                      { id: "paid", label: "Full Paid" },
+                    ].map(opt => (
+                      <button
+                        key={opt.id}
+                        onClick={() => { setPaymentMode(opt.id as any); setReceivedAmount(0); }}
+                        className={`py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
+                          paymentMode === opt.id
+                            ? opt.id === "unpaid" ? "border-red-400 bg-red-50 text-red-700"
+                            : opt.id === "partially_paid" ? "border-amber-400 bg-amber-50 text-amber-700"
+                            : "border-emerald-400 bg-emerald-50 text-emerald-700"
+                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Partial amount input */}
-              {paymentMode === "partially_paid" && (
+              {(paymentMode === "partially_paid" || isPaymentInMode) && (
                 <div className="flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <label className="text-sm text-amber-600 font-semibold whitespace-nowrap">Amount Received (₹)</label>
+                  <label className={cn("text-sm font-semibold whitespace-nowrap", isPaymentInMode ? "text-emerald-600" : "text-amber-600")}>Payment Amount (₹)</label>
                   <div className="relative flex-1">
                     <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input

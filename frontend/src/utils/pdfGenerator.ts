@@ -30,12 +30,16 @@ export async function generateBillPDF(bill: any, customer: any, items: any[], pr
   const itemRows = items.map((item: any, index: number) => {
     const englishName = item.product_name || `Item ID: ${item.product_id}`;
     const tamilName = item.tamil_name ? `${item.tamil_name} (${englishName})` : englishName;
+    const isReturn = (item.quantity || item.qty) < 0;
+    const qtyAbs = Math.abs(item.quantity || item.qty);
+    const amountStr = Number(item.amount || ((item.quantity || item.qty) * (item.rate || item.rateToUse))).toFixed(2);
+    
     return `
-      <tr>
-        <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; text-align: center;">${index + 1}</td>
-        <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0;">${tamilName}</td>
-        <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; text-align: center;">${item.quantity} &times; ${Number(item.rate).toFixed(2)}</td>
-        <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; text-align: right; font-weight: 600;">${Number(item.amount).toFixed(2)}</td>
+      <tr style="${isReturn ? 'background-color: #ffebee;' : ''}">
+        <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; text-align: center; ${isReturn ? 'color: #d32f2f;' : ''}">${index + 1}</td>
+        <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; ${isReturn ? 'color: #d32f2f; font-weight: 600;' : ''}">${isReturn ? '(RETURN) ' : ''}${tamilName}</td>
+        <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; text-align: center; ${isReturn ? 'color: #d32f2f;' : ''}">${isReturn ? '-' : ''}${qtyAbs} &times; ${Number(item.rate || item.rateToUse).toFixed(2)}</td>
+        <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; text-align: right; font-weight: 600; ${isReturn ? 'color: #d32f2f;' : ''}">${amountStr}</td>
       </tr>
     `;
   }).join("");
