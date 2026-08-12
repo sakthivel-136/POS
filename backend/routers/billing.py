@@ -60,6 +60,11 @@ def create_bill(bill: schemas.BillCreate, supabase: Client = Depends(get_supabas
     bill_data['status'] = new_bill_status
     bill_data['created_by'] = current_user.id
     
+    # Workaround for sequence out of sync: manually fetch max ID
+    max_id_res = supabase.table('bills').select('id').order('id', desc=True).limit(1).execute()
+    next_id = (max_id_res.data[0]['id'] + 1) if max_id_res.data else 1
+    bill_data['id'] = next_id
+    
     bill_res = supabase.table('bills').insert(bill_data).execute()
     db_bill = bill_res.data[0]
     
@@ -68,6 +73,10 @@ def create_bill(bill: schemas.BillCreate, supabase: Client = Depends(get_supabas
         # Create bill item
         item_data = item.model_dump()
         item_data['bill_id'] = db_bill['id']
+        
+        max_item_res = supabase.table('bill_items').select('id').order('id', desc=True).limit(1).execute()
+        item_data['id'] = (max_item_res.data[0]['id'] + 1) if max_item_res.data else 1
+        
         supabase.table('bill_items').insert(item_data).execute()
 
         # Deduct stock
@@ -80,7 +89,11 @@ def create_bill(bill: schemas.BillCreate, supabase: Client = Depends(get_supabas
         supabase.table('products').update({'current_stock': new_stock}).eq('id', item.product_id).execute()
 
         # Record stock transaction for sale
+        max_txn_res = supabase.table('stock_transactions').select('id').order('id', desc=True).limit(1).execute()
+        next_txn_id = (max_txn_res.data[0]['id'] + 1) if max_txn_res.data else 1
+        
         stock_txn = {
+            "id": next_txn_id,
             "product_id": item.product_id,
             "transaction_type": "sale",
             "quantity": float(item.quantity),
