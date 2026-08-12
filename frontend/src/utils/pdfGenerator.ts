@@ -26,23 +26,46 @@ export async function generateBillPDF(bill: any, customer: any, items: any[], pr
   const grandTotal = total + actualPreviousPending;
   const finalPending = grandTotal - paid;
 
-  // Construct item rows
-  const itemRows = items.map((item: any, index: number) => {
+  // Separate sales and returns
+  const salesItems = items.filter((i: any) => (i.quantity || i.qty) >= 0);
+  const returnItems = items.filter((i: any) => (i.quantity || i.qty) < 0);
+  
+  const salesTotal = salesItems.reduce((acc: number, item: any) => {
+    return acc + Number(item.amount || ((item.quantity || item.qty) * (item.rate || item.rateToUse)));
+  }, 0);
+  
+  const returnTotal = returnItems.reduce((acc: number, item: any) => {
+    return acc + Math.abs(Number(item.amount || ((item.quantity || item.qty) * (item.rate || item.rateToUse))));
+  }, 0);
+
+  const generateRow = (item: any, index: number, isReturn: boolean) => {
     const englishName = item.product_name || `Item ID: ${item.product_id}`;
     const tamilName = item.tamil_name ? `${item.tamil_name} (${englishName})` : englishName;
-    const isReturn = (item.quantity || item.qty) < 0;
     const qtyAbs = Math.abs(item.quantity || item.qty);
     const amountStr = Number(item.amount || ((item.quantity || item.qty) * (item.rate || item.rateToUse))).toFixed(2);
     
     return `
       <tr style="${isReturn ? 'background-color: #ffebee;' : ''}">
         <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; text-align: center; ${isReturn ? 'color: #d32f2f;' : ''}">${index + 1}</td>
-        <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; ${isReturn ? 'color: #d32f2f; font-weight: 600;' : ''}">${isReturn ? '(RETURN) ' : ''}${tamilName}</td>
-        <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; text-align: center; ${isReturn ? 'color: #d32f2f;' : ''}">${isReturn ? '-' : ''}${qtyAbs} &times; ${Number(item.rate || item.rateToUse).toFixed(2)}</td>
-        <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; text-align: right; font-weight: 600; ${isReturn ? 'color: #d32f2f;' : ''}">${amountStr}</td>
+        <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; ${isReturn ? 'color: #d32f2f; font-weight: 600;' : ''}">${tamilName}</td>
+        <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; text-align: center; ${isReturn ? 'color: #d32f2f;' : ''}">${qtyAbs} &times; ${Number(item.rate || item.rateToUse).toFixed(2)}</td>
+        <td style="padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f0f0f0; text-align: right; font-weight: 600; ${isReturn ? 'color: #d32f2f;' : ''}">${isReturn ? '-' : ''}${amountStr}</td>
       </tr>
     `;
-  }).join("");
+  };
+
+  let itemRows = salesItems.map((item: any, index: number) => generateRow(item, index, false)).join("");
+  
+  if (returnItems.length > 0) {
+    itemRows += `
+      <tr>
+        <td colspan="4" style="padding: 12px 10px 4px 10px; font-size: 12px; font-weight: bold; color: #d32f2f; text-transform: uppercase; border-bottom: 1px solid #ffcdd2; background-color: #ffebee;">
+          Returned Items
+        </td>
+      </tr>
+    `;
+    itemRows += returnItems.map((item: any, index: number) => generateRow(item, salesItems.length + index, true)).join("");
+  }
 
   const billDate = bill.created_at || bill.bill_date || new Date();
   const dateDisplay = new Date(billDate).toLocaleDateString("en-IN");
@@ -190,12 +213,24 @@ export async function generateBillPDF(bill: any, customer: any, items: any[], pr
             <table class="totals-table">
                 <tr>
                     <th>Current Bill Total</th>
-                    <td>₹ ${total.toFixed(2)}</td>
+                    <td>₹ ${salesTotal.toFixed(2)}</td>
                 </tr>
                 ${actualPreviousPending > 0.01 ? `
                 <tr>
                     <th>Previous Pending</th>
                     <td>₹ ${actualPreviousPending.toFixed(2)}</td>
+                </tr>
+                ` : ""}
+                ${(actualPreviousPending > 0.01 || returnTotal > 0) ? `
+                <tr>
+                    <th>Total Bill</th>
+                    <td>₹ ${(salesTotal + actualPreviousPending).toFixed(2)}</td>
+                </tr>
+                ` : ""}
+                ${returnTotal > 0 ? `
+                <tr>
+                    <th style="color: #d32f2f;">Returned Amount</th>
+                    <td style="color: #d32f2f;">- ₹ ${returnTotal.toFixed(2)}</td>
                 </tr>
                 ` : ""}
                 <tr class="grand-total-row">

@@ -66,14 +66,15 @@ export default function BillingPOS() {
                 const cust = loadedCustomers.find((c: any) => c.id === targetBill.customer_id);
                 if (cust) setSelectedCustomer(cust);
                 
-                // Map bill_items back to products
                 if (targetBill.bill_items) {
                   const mappedItems = targetBill.bill_items.map((bi: any) => {
                     const prod = loadedProducts.find((p: any) => p.id === bi.product_id);
                     return {
                       ...prod,
-                      qty: bi.quantity,
-                      rateToUse: bi.rate
+                      cart_id: Date.now() + Math.random(),
+                      qty: Math.abs(bi.quantity),
+                      rateToUse: bi.rate,
+                      isReturn: bi.quantity < 0
                     };
                   }).filter((i: any) => i.id);
                   setItems(mappedItems);
@@ -94,26 +95,26 @@ export default function BillingPOS() {
 
   const addItem = (product: any) => {
     const rateToUse = customerRates[product.id] !== undefined ? customerRates[product.id] : (product.default_selling_price || 0);
-    const existing = items.find(i => i.id === product.id);
+    const existing = items.find(i => i.id === product.id && !i.isReturn);
     if (existing) {
-      setItems(items.map(i => i.id === product.id ? { ...i, qty: i.qty + 1 } : i));
+      setItems(items.map(i => (i.id === product.id && !i.isReturn) ? { ...i, qty: i.qty + 1 } : i));
     } else {
-      setItems([...items, { ...product, qty: 1, rateToUse, isReturn: false }]);
+      setItems([...items, { ...product, cart_id: Date.now() + Math.random(), qty: 1, rateToUse, isReturn: false }]);
     }
   };
 
-  const removeItem = (id: number) => setItems(items.filter(i => i.id !== id));
+  const removeItem = (cart_id: number) => setItems(items.filter(i => i.cart_id !== cart_id));
 
-  const updateQty = (id: number, qty: number) => {
-    setItems(items.map(i => i.id === id ? { ...i, qty: Math.max(1, Number(qty)) } : i));
+  const updateQty = (cart_id: number, qty: number) => {
+    setItems(items.map(i => i.cart_id === cart_id ? { ...i, qty: Math.max(1, Number(qty)) } : i));
   };
 
-  const toggleReturn = (id: number) => {
-    setItems(items.map(i => i.id === id ? { ...i, isReturn: !i.isReturn } : i));
+  const toggleReturn = (cart_id: number) => {
+    setItems(items.map(i => i.cart_id === cart_id ? { ...i, isReturn: !i.isReturn } : i));
   };
 
-  const updateRate = (id: number, rate: number) => {
-    setItems(items.map(i => i.id === id ? { ...i, rateToUse: Number(rate) } : i));
+  const updateRate = (cart_id: number, rate: number) => {
+    setItems(items.map(i => i.cart_id === cart_id ? { ...i, rateToUse: Number(rate) } : i));
   };
 
   const currentBillAmount = items.reduce((acc, item) => acc + ((item.isReturn ? -1 : 1) * item.rateToUse * item.qty), 0);
@@ -419,7 +420,7 @@ export default function BillingPOS() {
                 </div>
               ) : (
                 items.map((item, index) => (
-                  <div key={item.id} className="flex items-center gap-3 bg-white/5 p-3 rounded-lg border border-white/5">
+                  <div key={item.cart_id || item.id} className="flex items-center gap-3 bg-white/5 p-3 rounded-lg border border-white/5">
                     <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">{index + 1}</div>
                     <div className="flex-1">
                       <p className="font-semibold leading-none">{item.product_name}</p>
@@ -428,7 +429,7 @@ export default function BillingPOS() {
                         <input
                           type="number"
                           value={item.rateToUse}
-                          onChange={(e) => updateRate(item.id, Number(e.target.value))}
+                          onChange={(e) => updateRate(item.cart_id, Number(e.target.value))}
                           className="w-16 h-6 bg-background/50 border border-white/20 px-1 rounded-sm text-black focus:outline-none focus:ring-1 focus:ring-primary"
                           min="0"
                         />
@@ -437,18 +438,18 @@ export default function BillingPOS() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center">
-                        <button onClick={() => updateQty(item.id, item.qty - 1)} className="w-8 h-8 bg-white/10 hover:bg-white/20 rounded-l-md flex items-center justify-center border border-white/10 text-lg font-bold">-</button>
+                        <button onClick={() => updateQty(item.cart_id, item.qty - 1)} className="w-8 h-8 bg-white/10 hover:bg-white/20 rounded-l-md flex items-center justify-center border border-white/10 text-lg font-bold">-</button>
                         <input
                           type="number"
                           value={item.qty}
-                          onChange={(e) => updateQty(item.id, Number(e.target.value))}
+                          onChange={(e) => updateQty(item.cart_id, Number(e.target.value))}
                           className="w-12 h-8 bg-background border-y border-white/10 px-1 text-center focus:outline-none"
                           min="1"
                         />
-                        <button onClick={() => updateQty(item.id, item.qty + 1)} className="w-8 h-8 bg-white/10 hover:bg-white/20 rounded-r-md flex items-center justify-center border border-white/10 text-lg font-bold">+</button>
+                        <button onClick={() => updateQty(item.cart_id, item.qty + 1)} className="w-8 h-8 bg-white/10 hover:bg-white/20 rounded-r-md flex items-center justify-center border border-white/10 text-lg font-bold">+</button>
                       </div>
                       <button 
-                        onClick={() => toggleReturn(item.id)} 
+                        onClick={() => toggleReturn(item.cart_id)} 
                         className={cn("px-2 py-1 text-[10px] font-bold rounded-md ml-1 uppercase transition-colors", item.isReturn ? "bg-red-500/20 text-red-600 border border-red-500/30" : "bg-gray-100 text-gray-400 border border-transparent")}
                       >
                         {item.isReturn ? "Return" : "Sale"}
@@ -456,7 +457,7 @@ export default function BillingPOS() {
                       <div className={cn("w-16 text-right font-bold", item.isReturn ? "text-red-500" : "")}>
                         {item.isReturn ? "- " : ""}₹{item.rateToUse * item.qty}
                       </div>
-                      <button onClick={() => removeItem(item.id)} className="p-1 hover:bg-destructive/20 text-destructive rounded-md transition-colors">
+                      <button onClick={() => removeItem(item.cart_id)} className="p-1 hover:bg-destructive/20 text-destructive rounded-md transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
