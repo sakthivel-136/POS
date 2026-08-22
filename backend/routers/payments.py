@@ -17,6 +17,10 @@ def receive_payment(payment: schemas.PaymentCreate, supabase: Client = Depends(g
     payment_data = payment.model_dump()
     payment_data['received_by'] = current_user.id
     
+    # Workaround for sequence out of sync: manually fetch max ID
+    max_pay_res = supabase.table('payments').select('id').order('id', desc=True).limit(1).execute()
+    payment_data['id'] = (max_pay_res.data[0]['id'] + 1) if max_pay_res.data else 1
+    
     pay_res = supabase.table('payments').insert(payment_data).execute()
     db_payment = pay_res.data[0]
 
